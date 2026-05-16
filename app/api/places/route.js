@@ -56,14 +56,14 @@ async function fetchTourApi(url) {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error("공공데이터 응답이 JSON이 아닙니다.");
+    throw new Error(`JSON 아님: ${text.slice(0, 160)}`);
   }
 
   const resultCode = data?.response?.header?.resultCode;
   const resultMsg = data?.response?.header?.resultMsg;
 
   if (resultCode && resultCode !== "0000") {
-    throw new Error(resultMsg || "공공데이터 API 요청에 실패했습니다.");
+    throw new Error(resultMsg || `공공데이터 오류 코드: ${resultCode}`);
   }
 
   const body = data?.response?.body;
@@ -96,12 +96,8 @@ async function fetchAllPages(createUrl, maxPages = 50) {
   const pagesToFetch = Math.min(totalPages, maxPages);
 
   for (let page = 2; page <= pagesToFetch; page++) {
-    try {
-      const result = await fetchTourApi(createUrl(page));
-      allItems = [...allItems, ...result.items];
-    } catch {
-      break;
-    }
+    const result = await fetchTourApi(createUrl(page));
+    allItems = [...allItems, ...result.items];
   }
 
   return {
@@ -183,7 +179,6 @@ async function fetchByContentType({
   const result = await fetchAllPages(createUrl, 50);
 
   let items = removeDuplicates(result.items);
-
   items = filterExactContentType(items, contentTypeId);
   items = filterByKeywordInResult(items, keyword);
 
@@ -220,8 +215,9 @@ async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
   }
 
   let allItems = [];
+  let failedMessages = [];
 
-  const requests = AREA_CODES.map(async (code) => {
+  for (const code of AREA_CODES) {
     try {
       const createUrl = (pageNo) => {
         const url = makeCommonUrl(
@@ -237,16 +233,21 @@ async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
       };
 
       const result = await fetchAllPages(createUrl, 50);
-      return result.items;
-    } catch {
-      return [];
+      allItems = [...allItems, ...result.items];
+    } catch (error) {
+      failedMessages.push(`areaCode ${code}: ${error.message}`);
     }
-  });
-
-  const results = await Promise.all(requests);
-  allItems = results.flat();
+  }
 
   const items = removeDuplicates(allItems);
+
+  if (items.length === 0) {
+    throw new Error(
+      failedMessages.length > 0
+        ? failedMessages[0]
+        : "전국 데이터를 불러왔지만 결과가 없습니다."
+    );
+  }
 
   return {
     items,
