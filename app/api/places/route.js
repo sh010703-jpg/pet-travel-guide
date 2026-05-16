@@ -30,39 +30,6 @@ const VALID_CONTENT_TYPES = {
   "39": "음식점/카페",
 };
 
-const FOOD_CAFE_WORDS = [
-  "음식점",
-  "식당",
-  "맛집",
-  "레스토랑",
-  "카페",
-  "커피",
-  "coffee",
-  "브런치",
-  "디저트",
-  "베이커리",
-  "빵",
-  "펍",
-  "바",
-];
-
-const EXCLUDE_FROM_FOOD_CAFE = [
-  "약국",
-  "병원",
-  "동물병원",
-  "백화점",
-  "아울렛",
-  "마트",
-  "슈퍼",
-  "쇼핑몰",
-  "시장",
-  "상가",
-  "펫샵",
-  "용품",
-  "편집숍",
-  "기념품",
-];
-
 function makeCommonUrl(baseUrl, serviceKey, pageNo, numOfRows) {
   const url = new URL(baseUrl);
 
@@ -82,15 +49,7 @@ async function fetchTourApi(url) {
     cache: "no-store",
   });
 
-  const text = await response.text();
-
-  let data;
-
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error("공공데이터 API 응답이 JSON 형식이 아닙니다. 인증키 또는 요청 주소를 확인해주세요.");
-  }
+  const data = await response.json();
 
   const resultCode = data?.response?.header?.resultCode;
   const resultMsg = data?.response?.header?.resultMsg;
@@ -118,7 +77,7 @@ async function fetchTourApi(url) {
   };
 }
 
-async function fetchAllPages(createUrl, maxPages = 8) {
+async function fetchAllPages(createUrl, maxPages = 50) {
   const firstResult = await fetchTourApi(createUrl(1));
 
   let allItems = [...firstResult.items];
@@ -156,15 +115,6 @@ function removeDuplicates(items) {
   return uniqueItems;
 }
 
-function getText(item) {
-  return `
-    ${item.title || ""}
-    ${item.addr1 || ""}
-    ${item.addr2 || ""}
-    ${item.tel || ""}
-  `.toLowerCase();
-}
-
 function filterExactContentType(items, contentTypeId) {
   if (!contentTypeId) {
     return items;
@@ -183,44 +133,15 @@ function filterByKeywordInResult(items, keyword) {
   const searchText = keyword.toLowerCase();
 
   return items.filter((item) => {
-    const text = getText(item);
+    const text = `
+      ${item.title || ""}
+      ${item.addr1 || ""}
+      ${item.addr2 || ""}
+      ${item.tel || ""}
+    `.toLowerCase();
+
     return text.includes(searchText);
   });
-}
-
-function isFoodCafeLike(item) {
-  const text = getText(item);
-
-  const hasFoodCafeWord = FOOD_CAFE_WORDS.some((word) =>
-    text.includes(word.toLowerCase())
-  );
-
-  const hasExcludeWord = EXCLUDE_FROM_FOOD_CAFE.some((word) =>
-    text.includes(word.toLowerCase())
-  );
-
-  return hasFoodCafeWord && !hasExcludeWord;
-}
-
-function filterFoodCafe(items, keyword) {
-  let result = items.filter((item) => {
-    const isOfficialFood = String(item.contenttypeid) === "39";
-    const isCafeLike = isFoodCafeLike(item);
-
-    return isOfficialFood || isCafeLike;
-  });
-
-  result = result.filter((item) => {
-    const text = getText(item);
-
-    return !EXCLUDE_FROM_FOOD_CAFE.some((word) =>
-      text.includes(word.toLowerCase())
-    );
-  });
-
-  result = filterByKeywordInResult(result, keyword);
-
-  return result;
 }
 
 async function fetchByContentType({
@@ -247,86 +168,15 @@ async function fetchByContentType({
     return url;
   };
 
-  const result = await fetchAllPages(createUrl, 10);
+  const result = await fetchAllPages(createUrl, 50);
 
   let items = removeDuplicates(result.items);
 
+  // 선택한 카테고리와 정확히 일치하는 것만 남김
   items = filterExactContentType(items, contentTypeId);
+
+  // 검색어가 있으면 해당 카테고리 안에서만 검색
   items = filterByKeywordInResult(items, keyword);
-
-  return {
-    items,
-    totalCount: items.length,
-    loadedCount: items.length,
-  };
-}
-
-async function fetchFoodCafe({
-  serviceKey,
-  areaCode,
-  keyword,
-  numOfRows,
-}) {
-  let allItems = [];
-
-  /*
-    1. 공식 음식점/카페 분류 39
-  */
-  const foodResult = await fetchByContentType({
-    serviceKey,
-    areaCode,
-    contentTypeId: "39",
-    keyword: "",
-    numOfRows,
-  });
-
-  allItems = [...allItems, ...foodResult.items];
-
-  /*
-    2. 카페 관련 키워드 검색
-    단, 약국/쇼핑/백화점 등은 마지막에 제외
-  */
-  const keywordList = [
-    "카페",
-    "커피",
-    "브런치",
-    "디저트",
-    "베이커리",
-    "식당",
-    "레스토랑",
-    "맛집",
-  ];
-
-  for (const word of keywordList) {
-    const createKeywordUrl = (pageNo) => {
-      const url = makeCommonUrl(
-        "https://apis.data.go.kr/B551011/KorPetTourService2/searchKeyword2",
-        serviceKey,
-        pageNo,
-        numOfRows
-      );
-
-      url.searchParams.append("keyword", word);
-
-      if (areaCode) {
-        url.searchParams.append("areaCode", areaCode);
-      }
-
-      return url;
-    };
-
-    try {
-      const keywordResult = await fetchAllPages(createKeywordUrl, 3);
-      allItems = [...allItems, ...keywordResult.items];
-    } catch {
-      /*
-        특정 키워드에서 오류가 나도 전체가 멈추지 않게 처리
-      */
-    }
-  }
-
-  let items = removeDuplicates(allItems);
-  items = filterFoodCafe(items, keyword);
 
   return {
     items,
@@ -337,7 +187,8 @@ async function fetchFoodCafe({
 
 async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
   /*
-    지역 선택이 있을 때: 해당 지역 전체
+    지역을 선택한 경우
+    예: 부산 전체
   */
   if (areaCode) {
     const createUrl = (pageNo) => {
@@ -353,7 +204,7 @@ async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
       return url;
     };
 
-    const result = await fetchAllPages(createUrl, 10);
+    const result = await fetchAllPages(createUrl, 50);
     const items = removeDuplicates(result.items);
 
     return {
@@ -364,57 +215,39 @@ async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
   }
 
   /*
-    전국 전체:
-    한꺼번에 17개 지역을 다 돌리지 않고,
-    API 기본 전국 조회를 먼저 사용합니다.
-    이게 가장 안정적입니다.
+    전국 전체
+    17개 지역을 각각 조회해서 합칩니다.
+    이 방식이 아까 전국 전체가 700개대 나오던 방식입니다.
   */
-  const createNationalUrl = (pageNo) => {
-    const url = makeCommonUrl(
-      "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
-      serviceKey,
-      pageNo,
-      numOfRows
-    );
+  let allItems = [];
 
-    return url;
-  };
+  const requests = AREA_CODES.map(async (code) => {
+    const createUrl = (pageNo) => {
+      const url = makeCommonUrl(
+        "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
+        serviceKey,
+        pageNo,
+        numOfRows
+      );
 
-  const result = await fetchAllPages(createNationalUrl, 10);
-  let items = removeDuplicates(result.items);
+      url.searchParams.append("areaCode", code);
 
-  /*
-    혹시 전국 기본 조회가 비어 있으면 지역별 일부 조회로 보완
-  */
-  if (items.length === 0) {
-    let allItems = [];
+      return url;
+    };
 
-    for (const code of AREA_CODES) {
-      const createAreaUrl = (pageNo) => {
-        const url = makeCommonUrl(
-          "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
-          serviceKey,
-          pageNo,
-          numOfRows
-        );
+    const result = await fetchAllPages(createUrl, 50);
+    return result.items;
+  });
 
-        url.searchParams.append("areaCode", code);
+  const results = await Promise.allSettled(requests);
 
-        return url;
-      };
-
-      try {
-        const areaResult = await fetchAllPages(createAreaUrl, 2);
-        allItems = [...allItems, ...areaResult.items];
-      } catch {
-        /*
-          특정 지역 실패는 건너뜀
-        */
-      }
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      allItems = [...allItems, ...result.value];
     }
-
-    items = removeDuplicates(allItems);
   }
+
+  const items = removeDuplicates(allItems);
 
   return {
     items,
@@ -451,7 +284,7 @@ async function fetchNearby({
     return url;
   };
 
-  const result = await fetchAllPages(createUrl, 5);
+  const result = await fetchAllPages(createUrl, 20);
 
   let items = removeDuplicates(result.items);
 
@@ -513,21 +346,11 @@ export async function GET(request) {
     }
 
     /*
-      2. 음식점/카페
-    */
-    if (contentTypeId === "39") {
-      const result = await fetchFoodCafe({
-        serviceKey,
-        areaCode,
-        keyword,
-        numOfRows,
-      });
-
-      return NextResponse.json(result);
-    }
-
-    /*
-      3. 일반 카테고리
+      2. 카테고리 선택
+      음식점/카페는 39만,
+      쇼핑은 38만,
+      숙박은 32만,
+      관광지는 12만 가져옵니다.
     */
     if (contentTypeId && VALID_CONTENT_TYPES[contentTypeId]) {
       const result = await fetchByContentType({
@@ -542,7 +365,8 @@ export async function GET(request) {
     }
 
     /*
-      4. 검색어만 있는 경우
+      3. 검색어만 있는 경우
+      카테고리가 없으므로 전체 키워드 검색입니다.
     */
     if (keyword) {
       const createUrl = (pageNo) => {
@@ -562,7 +386,7 @@ export async function GET(request) {
         return url;
       };
 
-      const result = await fetchAllPages(createUrl, 8);
+      const result = await fetchAllPages(createUrl, 30);
       const items = removeDuplicates(result.items);
 
       return NextResponse.json({
@@ -573,7 +397,7 @@ export async function GET(request) {
     }
 
     /*
-      5. 전체
+      4. 지역만 선택 또는 전국 전체
     */
     const result = await fetchAreaOnly({
       serviceKey,
