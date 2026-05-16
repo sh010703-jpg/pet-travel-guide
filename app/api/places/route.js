@@ -36,7 +36,9 @@ async function fetchTourApi(url) {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error("공공데이터 API 응답을 읽을 수 없습니다. 인증키나 요청 주소를 확인해주세요.");
+    throw new Error(
+      "공공데이터 API 응답을 읽을 수 없습니다. 인증키나 요청 주소를 확인해주세요."
+    );
   }
 
   const resultCode = data?.response?.header?.resultCode;
@@ -60,7 +62,7 @@ async function fetchTourApi(url) {
   return {
     items: itemList,
     totalCount: Number(body?.totalCount || itemList.length || 0),
-    pageNo: Number(body?.pageNo || pageNo || 1),
+    pageNo: Number(body?.pageNo || 1),
     numOfRows: Number(body?.numOfRows || itemList.length || 0),
   };
 }
@@ -299,10 +301,6 @@ export async function GET(request) {
       return NextResponse.json(result);
     }
 
-    /*
-      검색어가 있으면 키워드 검색
-      예: 카페, 해운대, 공원
-    */
     if (keyword.trim()) {
       const result = await fetchKeywordList({
         serviceKey,
@@ -314,10 +312,6 @@ export async function GET(request) {
       return NextResponse.json(result);
     }
 
-    /*
-      검색어가 없으면 지역/카테고리 기반 검색
-      전국 전체도 여기서 처리됨
-    */
     const result = await fetchAreaBasedList({
       serviceKey,
       areaCode,
