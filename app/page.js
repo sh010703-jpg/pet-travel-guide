@@ -85,17 +85,17 @@ export default function Home() {
   return (
     <main>
       <section className="hero">
+        <div className="heroDecor decorHeart1">♡</div>
+        <div className="heroDecor decorHeart2">♡</div>
+        <div className="heroDecor decorSpark">✦</div>
+        <div className="heroDecor decorHeart3">♡</div>
+
         <div className="heroDog">
           <img
             src="/dog-badge.png"
             alt="동그라미 안에 들어간 귀여운 강아지"
             className="dogBadgeImage"
           />
-
-          <div className="heart heart1">♡</div>
-          <div className="heart heart2">♡</div>
-          <div className="heart heart3">✦</div>
-          <div className="heart heart4">♡</div>
         </div>
 
         <div className="heroTextArea">
@@ -106,6 +106,12 @@ export default function Home() {
           <p className="heroText">
             우리 강아지와 함께 갈 수 있는 따뜻한 장소를 찾아보세요.
           </p>
+
+          <div className="heroTags">
+            <span>반려견 동반 여행</span>
+            <span>관광지 · 숙소 · 카페</span>
+            <span>공공데이터 기반</span>
+          </div>
         </div>
       </section>
 
