@@ -85,16 +85,6 @@ export default function Home() {
   return (
     <main>
       <section className="hero">
-        <div className="heroTextArea">
-          <p className="badge">🐾 한국관광공사 공공데이터 활용</p>
-
-          <h1>댕댕이랑 어디가?</h1>
-
-          <p className="heroText">
-            우리 강아지와 함께 갈 수 있는 따뜻한 장소를 찾아보세요.
-          </p>
-        </div>
-
         <div className="heroDog">
           <div className="dogFrame">
             <img src="/dog.png" alt="토끼 옷을 입은 귀여운 강아지" />
@@ -104,6 +94,16 @@ export default function Home() {
           <div className="heart heart1">♡</div>
           <div className="heart heart2">♡</div>
           <div className="heart heart3">♡</div>
+        </div>
+
+        <div className="heroTextArea">
+          <p className="badge">🐾 한국관광공사 공공데이터 활용</p>
+
+          <h1>댕댕이랑 어디가?</h1>
+
+          <p className="heroText">
+            우리 강아지와 함께 갈 수 있는 따뜻한 장소를 찾아보세요.
+          </p>
         </div>
       </section>
 
