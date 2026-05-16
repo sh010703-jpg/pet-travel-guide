@@ -260,6 +260,16 @@ h1 {
   font-size: 22px;
 }
 
+.pageSummary {
+  margin-top: 8px !important;
+  font-size: 14px;
+  color: #9a757c;
+}
+
+.pageSummary::before {
+  content: "📄 ";
+}
+
 .resultButtons {
   display: flex;
   align-items: center;
@@ -448,6 +458,78 @@ h2 {
 .buttons a:hover,
 .buttons button:hover {
   transform: translateY(-2px);
+}
+
+/* 페이지네이션 */
+.pagination {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 52px 0 30px;
+  padding: 26px 20px;
+}
+
+.pageMoveButton,
+.pageNumberButton {
+  appearance: none;
+  border: 1px solid #f1b9c5;
+  cursor: pointer;
+  min-width: 48px;
+  height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #6b5057;
+  font-size: 16px;
+  font-weight: 900;
+  font-family: Arial, "Noto Sans KR", sans-serif;
+  box-shadow: 0 12px 26px rgba(210, 122, 141, 0.16);
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.pageMoveButton {
+  min-width: 86px;
+  background: #fff7f2;
+}
+
+.pageMoveButton:hover,
+.pageNumberButton:hover {
+  transform: translateY(-3px);
+  background: #fff0f5;
+  color: #e7768a;
+  box-shadow: 0 16px 32px rgba(210, 122, 141, 0.22);
+}
+
+.activePage {
+  background: linear-gradient(135deg, #ff9aaa 0%, #ef7f91 100%);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 14px 30px rgba(239, 127, 145, 0.32);
+}
+
+.pageMoveButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+  transform: none;
+  box-shadow: none;
+}
+
+.pageDots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  padding: 0 4px;
+  color: #b98b96;
+  font-size: 20px;
+  font-weight: 900;
 }
 
 /* 상세보기 팝업 */
@@ -784,6 +866,29 @@ h2 {
 
   .imageWrap {
     height: 220px;
+  }
+
+  .pagination {
+    gap: 8px;
+    margin: 36px 0 20px;
+    padding: 18px 0;
+  }
+
+  .pageMoveButton,
+  .pageNumberButton {
+    min-width: 42px;
+    height: 42px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+
+  .pageMoveButton {
+    min-width: 72px;
+  }
+
+  .pageDots {
+    height: 42px;
+    font-size: 17px;
   }
 
   .modalOverlay {
