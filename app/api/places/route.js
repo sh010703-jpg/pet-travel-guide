@@ -56,9 +56,7 @@ async function fetchTourApi(url) {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error(
-      `공공데이터 응답이 JSON이 아닙니다. 응답 일부: ${text.slice(0, 120)}`
-    );
+    throw new Error("공공데이터 응답이 JSON이 아닙니다.");
   }
 
   const resultCode = data?.response?.header?.resultCode;
@@ -98,8 +96,12 @@ async function fetchAllPages(createUrl, maxPages = 50) {
   const pagesToFetch = Math.min(totalPages, maxPages);
 
   for (let page = 2; page <= pagesToFetch; page++) {
-    const result = await fetchTourApi(createUrl(page));
-    allItems = [...allItems, ...result.items];
+    try {
+      const result = await fetchTourApi(createUrl(page));
+      allItems = [...allItems, ...result.items];
+    } catch {
+      break;
+    }
   }
 
   return {
@@ -217,47 +219,34 @@ async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
     };
   }
 
-  /*
-    전국 전체:
-    17개 지역을 각각 조회하되, 한 지역이 실패해도 전체가 죽지 않도록 allSettled 사용
-  */
   let allItems = [];
 
   const requests = AREA_CODES.map(async (code) => {
-    const createUrl = (pageNo) => {
-      const url = makeCommonUrl(
-        "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
-        serviceKey,
-        pageNo,
-        numOfRows
-      );
+    try {
+      const createUrl = (pageNo) => {
+        const url = makeCommonUrl(
+          "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
+          serviceKey,
+          pageNo,
+          numOfRows
+        );
 
-      url.searchParams.append("areaCode", code);
+        url.searchParams.append("areaCode", code);
 
-      return url;
-    };
+        return url;
+      };
 
-    const result = await fetchAllPages(createUrl, 50);
-    return result.items;
+      const result = await fetchAllPages(createUrl, 50);
+      return result.items;
+    } catch {
+      return [];
+    }
   });
 
-  const results = await Promise.allSettled(requests);
-
-  const failedReasons = [];
-
-  for (const result of results) {
-    if (result.status === "fulfilled") {
-      allItems = [...allItems, ...result.value];
-    } else {
-      failedReasons.push(result.reason?.message || "알 수 없는 지역 조회 오류");
-    }
-  }
+  const results = await Promise.all(requests);
+  allItems = results.flat();
 
   const items = removeDuplicates(allItems);
-
-  if (items.length === 0 && failedReasons.length > 0) {
-    throw new Error(failedReasons[0]);
-  }
 
   return {
     items,
