@@ -98,6 +98,9 @@ export default function Home() {
             <img src="/dog.png" alt="토끼 옷을 입은 귀여운 강아지" />
           </div>
           <div className="bow">🎀</div>
+          <div className="heart heart1">♡</div>
+          <div className="heart heart2">♡</div>
+          <div className="heart heart3">♡</div>
         </div>
       </section>
 
@@ -184,7 +187,9 @@ function PlaceCard({ place, onSelect }) {
       </div>
 
       <div className="cardBody">
-        <span className="category">{getCategoryIcon(typeName)} {typeName}</span>
+        <span className="category">
+          {getCategoryIcon(typeName)} {typeName}
+        </span>
         <h2>{place.title || "이름 없는 장소"}</h2>
 
         {place.addr1 && (
@@ -239,7 +244,9 @@ function PlaceModal({ place, onClose }) {
         )}
 
         <div className="modalBody">
-          <span className="category">{getCategoryIcon(typeName)} {typeName}</span>
+          <span className="category">
+            {getCategoryIcon(typeName)} {typeName}
+          </span>
           <h2>{place.title || "반려동물 동반 장소"}</h2>
 
           <div className="detailList">
