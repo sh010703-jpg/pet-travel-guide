@@ -27,21 +27,8 @@ const VALID_CONTENT_TYPES = {
   "28": "레포츠",
   "32": "숙박",
   "38": "쇼핑",
-  "39": "음식점",
+  "39": "음식점/카페",
 };
-
-const PET_CAFE_WORDS = [
-  "카페",
-  "커피",
-  "coffee",
-  "브런치",
-  "디저트",
-  "베이커리",
-  "애견카페",
-  "펫카페",
-  "반려견카페",
-  "반려동물카페",
-];
 
 function makeCommonUrl(baseUrl, serviceKey, pageNo, numOfRows) {
   const url = new URL(baseUrl);
@@ -157,25 +144,6 @@ function filterByKeywordInResult(items, keyword) {
   });
 }
 
-function filterPetCafeOnly(items) {
-  return items.filter((item) => {
-    const isFood = String(item.contenttypeid) === "39";
-
-    if (!isFood) {
-      return false;
-    }
-
-    const text = `
-      ${item.title || ""}
-      ${item.addr1 || ""}
-      ${item.addr2 || ""}
-      ${item.tel || ""}
-    `.toLowerCase();
-
-    return PET_CAFE_WORDS.some((word) => text.includes(word.toLowerCase()));
-  });
-}
-
 async function fetchByContentType({
   serviceKey,
   areaCode,
@@ -204,7 +172,7 @@ async function fetchByContentType({
 
   let items = removeDuplicates(result.items);
 
-  // 한 번 더 정확히 contenttypeid 검사
+  // 선택한 카테고리와 정확히 일치하는 것만 다시 확인
   items = filterExactContentType(items, contentTypeId);
 
   // 검색어가 있으면 해당 카테고리 안에서만 검색
@@ -274,43 +242,12 @@ async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
   };
 }
 
-async function fetchPetCafe({
-  serviceKey,
-  areaCode,
-  keyword,
-  numOfRows,
-}) {
-  /*
-    카페/애견카페는 무조건 음식점 39 안에서만 찾습니다.
-    그래서 쇼핑, 약국, 백화점이 섞이지 않습니다.
-  */
-  const foodResult = await fetchByContentType({
-    serviceKey,
-    areaCode,
-    contentTypeId: "39",
-    keyword: "",
-    numOfRows,
-  });
-
-  let items = filterPetCafeOnly(foodResult.items);
-
-  // 사용자가 해운대, 광안리 같은 검색어를 넣으면 카페 결과 안에서만 추가 필터
-  items = filterByKeywordInResult(items, keyword);
-
-  return {
-    items,
-    totalCount: items.length,
-    loadedCount: items.length,
-  };
-}
-
 async function fetchNearby({
   serviceKey,
   mapX,
   mapY,
   radius,
   contentTypeId,
-  petCafe,
   numOfRows,
 }) {
   const createUrl = (pageNo) => {
@@ -326,9 +263,7 @@ async function fetchNearby({
     url.searchParams.append("mapY", mapY);
     url.searchParams.append("radius", radius);
 
-    if (petCafe === "1") {
-      url.searchParams.append("contentTypeId", "39");
-    } else if (contentTypeId) {
+    if (contentTypeId) {
       url.searchParams.append("contentTypeId", contentTypeId);
     }
 
@@ -339,9 +274,7 @@ async function fetchNearby({
 
   let items = removeDuplicates(result.items);
 
-  if (petCafe === "1") {
-    items = filterPetCafeOnly(items);
-  } else if (contentTypeId) {
+  if (contentTypeId) {
     items = filterExactContentType(items, contentTypeId);
   }
 
@@ -358,7 +291,6 @@ export async function GET(request) {
   const keyword = searchParams.get("keyword") || "";
   const areaCode = searchParams.get("areaCode") || "";
   const contentTypeId = searchParams.get("contentTypeId") || "";
-  const petCafe = searchParams.get("petCafe") || "";
 
   const mode = searchParams.get("mode") || "";
   const mapX = searchParams.get("mapX") || "";
@@ -393,7 +325,6 @@ export async function GET(request) {
         mapY,
         radius,
         contentTypeId,
-        petCafe,
         numOfRows,
       });
 
@@ -401,22 +332,7 @@ export async function GET(request) {
     }
 
     /*
-      2. 카페/애견카페
-      음식점 39 안에서만 카페 단어가 있는 장소를 찾습니다.
-    */
-    if (petCafe === "1") {
-      const result = await fetchPetCafe({
-        serviceKey,
-        areaCode,
-        keyword,
-        numOfRows,
-      });
-
-      return NextResponse.json(result);
-    }
-
-    /*
-      3. 일반 카테고리
+      2. 카테고리 선택
       여기서는 절대 키워드 확장 검색을 하지 않습니다.
       선택한 contentTypeId와 정확히 일치하는 장소만 반환합니다.
     */
@@ -433,8 +349,8 @@ export async function GET(request) {
     }
 
     /*
-      4. 검색어만 있는 경우
-      특정 카테고리가 없으므로 전체 검색입니다.
+      3. 검색어만 있는 경우
+      카테고리가 없으므로 전체 검색입니다.
       이 경우에는 여러 유형이 섞일 수 있습니다.
     */
     if (keyword) {
@@ -466,8 +382,8 @@ export async function GET(request) {
     }
 
     /*
-      5. 지역만 선택 또는 전체
-      이 경우에는 전체 장소를 보여주는 것이므로 여러 유형이 섞일 수 있습니다.
+      4. 지역만 선택 또는 전체
+      전체 장소를 보여주는 것이므로 여러 유형이 섞일 수 있습니다.
     */
     const result = await fetchAreaOnly({
       serviceKey,
