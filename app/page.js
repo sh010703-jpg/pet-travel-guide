@@ -110,16 +110,14 @@ export default function Home() {
           </div>
 
           <div className="dogCircle">
-            <img
-              src="https://images.unsplash.com/photo-1593134257782-e89567b7718a?auto=format&fit=crop&w=900&q=80"
-              alt="귀여운 아기 강아지"
-            />
+            <img src="/dog.jpg" alt="토끼 옷을 입은 귀여운 강아지" />
           </div>
 
           <div className="speechBubble">오늘은 어디 갈까?</div>
           <div className="miniIcon iconBag">🎒</div>
           <div className="miniIcon iconBone">🦴</div>
           <div className="miniIcon iconPaw">🐾</div>
+          <div className="miniIcon iconHeart">💕</div>
         </div>
 
         <div className="heroTextArea">
@@ -245,7 +243,9 @@ function PlaceCard({ place, onSelect }) {
       </div>
 
       <div className="cardBody">
-        <span className="category">{getCategoryIcon(typeName)} {typeName}</span>
+        <span className="category">
+          {getCategoryIcon(typeName)} {typeName}
+        </span>
         <h2>{place.title || "이름 없는 장소"}</h2>
 
         {place.addr1 && (
@@ -300,7 +300,9 @@ function PlaceModal({ place, onClose }) {
         )}
 
         <div className="modalBody">
-          <span className="category">{getCategoryIcon(typeName)} {typeName}</span>
+          <span className="category">
+            {getCategoryIcon(typeName)} {typeName}
+          </span>
           <h2>{place.title || "반려동물 동반 장소"}</h2>
 
           <div className="detailList">
@@ -366,7 +368,7 @@ function getContentTypeName(contenttypeid) {
     "28": "레포츠",
     "32": "숙박",
     "38": "쇼핑",
-    "39": "음식점"
+    "39": "음식점",
   };
 
   return types[String(contenttypeid)] || "기타";
@@ -381,7 +383,7 @@ function getCategoryIcon(typeName) {
     숙박: "🏡",
     쇼핑: "🛍️",
     음식점: "☕",
-    기타: "🐾"
+    기타: "🐾",
   };
 
   return icons[typeName] || "🐾";
