@@ -91,6 +91,11 @@ export default function Home() {
             alt="동그라미 안에 들어간 귀여운 강아지"
             className="dogBadgeImage"
           />
+
+          <div className="heart heart1">♡</div>
+          <div className="heart heart2">♡</div>
+          <div className="heart heart3">✦</div>
+          <div className="heart heart4">♡</div>
         </div>
 
         <div className="heroTextArea">
