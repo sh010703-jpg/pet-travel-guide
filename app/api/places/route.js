@@ -21,144 +21,48 @@ const AREA_NAME_MAP = {
 };
 
 const AREA_CODES = [
-  "1",
-  "2",
-  "3",
-  "4",
-  "5",
-  "6",
-  "7",
-  "8",
-  "31",
-  "32",
-  "33",
-  "34",
-  "35",
-  "36",
-  "37",
-  "38",
-  "39",
+  "1", "2", "3", "4", "5", "6", "7", "8",
+  "31", "32", "33", "34", "35", "36", "37", "38", "39",
 ];
 
-/*
-  한국관광공사 관광정보 contentTypeId 기준
-  12 관광지
-  14 문화시설
-  15 축제/공연
-  28 레포츠
-  32 숙박
-  38 쇼핑
-  39 음식점
-
-  문제는 실제 데이터가 항상 정확한 분류에만 들어가 있지 않기 때문에
-  각 유형별로 관련 키워드도 함께 검색합니다.
-*/
 const TYPE_KEYWORDS = {
   "12": [
-    "관광지",
-    "여행지",
-    "공원",
-    "해변",
-    "해수욕장",
-    "산책",
-    "산책로",
-    "둘레길",
-    "반려견동반",
-    "애견동반",
-    "반려동물동반",
+    "관광지", "여행지", "공원", "해변", "해수욕장", "산책", "산책로",
+    "둘레길", "정원", "숲", "반려견동반", "애견동반", "반려동물동반",
   ],
   "14": [
-    "문화시설",
-    "미술관",
-    "박물관",
-    "전시",
-    "공연장",
-    "체험관",
-    "문화공간",
-    "반려견동반",
-    "애견동반",
+    "문화시설", "미술관", "박물관", "전시", "공연장", "체험관",
+    "문화공간", "갤러리", "반려견동반", "애견동반", "반려동물동반",
   ],
   "15": [
-    "축제",
-    "공연",
-    "행사",
-    "이벤트",
-    "페스티벌",
-    "마켓",
-    "플리마켓",
-    "반려견동반",
-    "애견동반",
+    "축제", "공연", "행사", "이벤트", "페스티벌", "마켓", "플리마켓",
+    "반려견동반", "애견동반", "반려동물동반",
   ],
   "28": [
-    "레포츠",
-    "캠핑",
-    "글램핑",
-    "산책",
-    "트레킹",
-    "해변",
-    "공원",
-    "운동장",
-    "반려견동반",
-    "애견동반",
+    "레포츠", "캠핑", "글램핑", "산책", "트레킹", "해변", "공원",
+    "운동장", "체험", "반려견동반", "애견동반", "반려동물동반",
   ],
   "32": [
-    "숙박",
-    "숙소",
-    "호텔",
-    "펜션",
-    "리조트",
-    "캠핑",
-    "글램핑",
-    "풀빌라",
-    "애견펜션",
-    "반려견동반숙소",
-    "애견동반숙소",
-    "반려동물동반숙소",
+    "숙박", "숙소", "호텔", "펜션", "리조트", "캠핑", "글램핑",
+    "풀빌라", "게스트하우스", "애견펜션", "애견동반숙소",
+    "반려견동반숙소", "반려동물동반숙소",
   ],
   "38": [
-    "쇼핑",
-    "시장",
-    "마켓",
-    "몰",
-    "아울렛",
-    "편집숍",
-    "상점",
-    "펫샵",
-    "애견용품",
-    "반려동물용품",
-    "반려견용품",
-    "애견동반",
-    "반려견동반",
+    "쇼핑", "시장", "마켓", "몰", "아울렛", "편집숍", "상점",
+    "펫샵", "애견용품", "반려동물용품", "반려견용품",
+    "애견동반", "반려견동반", "반려동물동반",
   ],
   "39": [
-    "음식점",
-    "식당",
-    "맛집",
-    "레스토랑",
-    "카페",
-    "커피",
-    "브런치",
-    "디저트",
-    "베이커리",
-    "애견동반",
-    "반려견동반",
+    "음식점", "식당", "맛집", "레스토랑", "카페", "커피", "브런치",
+    "디저트", "베이커리", "펍", "바", "애견동반", "반려견동반",
     "반려동물동반",
   ],
 };
 
 const PET_CAFE_KEYWORDS = [
-  "카페",
-  "커피",
-  "브런치",
-  "디저트",
-  "베이커리",
-  "애견카페",
-  "펫카페",
-  "반려견카페",
-  "반려동물카페",
-  "애견동반",
-  "반려견동반",
-  "반려동물동반",
+  "카페", "커피", "브런치", "디저트", "베이커리",
+  "애견카페", "펫카페", "반려견카페", "반려동물카페",
+  "애견동반", "반려견동반", "반려동물동반",
 ];
 
 function makeCommonUrl(baseUrl, serviceKey, pageNo, numOfRows) {
@@ -208,9 +112,8 @@ async function fetchTourApi(url) {
   };
 }
 
-async function fetchAllPages(createUrl, maxPages = 5) {
-  const firstUrl = createUrl(1);
-  const firstResult = await fetchTourApi(firstUrl);
+async function fetchAllPages(createUrl, maxPages = 30) {
+  const firstResult = await fetchTourApi(createUrl(1));
 
   let allItems = [...firstResult.items];
 
@@ -220,8 +123,7 @@ async function fetchAllPages(createUrl, maxPages = 5) {
   const pagesToFetch = Math.min(totalPages, maxPages);
 
   for (let page = 2; page <= pagesToFetch; page++) {
-    const url = createUrl(page);
-    const result = await fetchTourApi(url);
+    const result = await fetchTourApi(createUrl(page));
     allItems = [...allItems, ...result.items];
   }
 
@@ -248,10 +150,20 @@ function removeDuplicates(items) {
   return uniqueItems;
 }
 
+function filterByAreaName(items, areaCode) {
+  if (!areaCode) return items;
+
+  const areaName = AREA_NAME_MAP[areaCode];
+  if (!areaName) return items;
+
+  return items.filter((item) => {
+    const address = `${item.addr1 || ""} ${item.addr2 || ""}`;
+    return address.includes(areaName);
+  });
+}
+
 function filterByUserKeyword(items, keyword) {
-  if (!keyword) {
-    return items;
-  }
+  if (!keyword) return items;
 
   const searchText = keyword.toLowerCase();
 
@@ -267,27 +179,8 @@ function filterByUserKeyword(items, keyword) {
   });
 }
 
-function filterByAreaName(items, areaCode) {
-  if (!areaCode) {
-    return items;
-  }
-
-  const areaName = AREA_NAME_MAP[areaCode];
-
-  if (!areaName) {
-    return items;
-  }
-
-  return items.filter((item) => {
-    const address = `${item.addr1 || ""} ${item.addr2 || ""}`;
-    return address.includes(areaName);
-  });
-}
-
 function filterByWords(items, words) {
-  if (!words || words.length === 0) {
-    return items;
-  }
+  if (!words || words.length === 0) return items;
 
   return items.filter((item) => {
     const text = `
@@ -301,23 +194,13 @@ function filterByWords(items, words) {
   });
 }
 
-async function fetchKeywordExpandedItems({
-  serviceKey,
-  areaCode,
-  keyword,
-  contentTypeId,
-  keywordList,
-  numOfRows,
-}) {
-  let allItems = [];
-  let estimatedTotalCount = 0;
-
+async function fetchAreaAllItems({ serviceKey, areaCode, numOfRows }) {
   /*
-    1. 먼저 contentTypeId 기준으로 공식 분류 데이터를 가져옵니다.
-    예: 부산 + 음식점 39, 부산 + 쇼핑 38, 부산 + 숙박 32
+    지역만 선택했을 때 해당 지역 전체 데이터를 최대한 많이 가져옵니다.
+    예: 부산 전체 반려동물 동반 장소
   */
-  if (contentTypeId) {
-    const createTypeUrl = (pageNo) => {
+  if (areaCode) {
+    const createUrl = (pageNo) => {
       const url = makeCommonUrl(
         "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
         serviceKey,
@@ -325,27 +208,79 @@ async function fetchKeywordExpandedItems({
         numOfRows
       );
 
-      url.searchParams.append("contentTypeId", contentTypeId);
-
-      if (areaCode) {
-        url.searchParams.append("areaCode", areaCode);
-      }
-
+      url.searchParams.append("areaCode", areaCode);
       return url;
     };
 
-    const typeResult = await fetchAllPages(createTypeUrl, 10);
-    allItems = [...allItems, ...typeResult.items];
-    estimatedTotalCount += typeResult.totalCount;
+    return await fetchAllPages(createUrl, 30);
   }
 
   /*
-    2. 관련 키워드로 넓게 검색합니다.
-    예: 음식점 → 식당, 맛집, 레스토랑, 카페, 애견동반
-        쇼핑 → 시장, 마켓, 펫샵, 애견용품
-        숙박 → 호텔, 펜션, 애견펜션
+    전국 전체는 너무 많을 수 있으므로 지역별로 조금씩 가져옵니다.
   */
-  for (const searchWord of keywordList) {
+  let allItems = [];
+
+  const requests = AREA_CODES.map(async (code) => {
+    const createUrl = (pageNo) => {
+      const url = makeCommonUrl(
+        "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
+        serviceKey,
+        pageNo,
+        40
+      );
+
+      url.searchParams.append("areaCode", code);
+      return url;
+    };
+
+    const result = await fetchAllPages(createUrl, 2);
+    return result.items;
+  });
+
+  const results = await Promise.all(requests);
+  allItems = results.flat();
+
+  return {
+    items: allItems,
+    totalCount: allItems.length,
+    loadedCount: allItems.length,
+  };
+}
+
+async function fetchByContentType({ serviceKey, areaCode, contentTypeId, numOfRows }) {
+  const createUrl = (pageNo) => {
+    const url = makeCommonUrl(
+      "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
+      serviceKey,
+      pageNo,
+      numOfRows
+    );
+
+    url.searchParams.append("contentTypeId", contentTypeId);
+
+    if (areaCode) {
+      url.searchParams.append("areaCode", areaCode);
+    }
+
+    return url;
+  };
+
+  return await fetchAllPages(createUrl, 30);
+}
+
+async function fetchByKeywordList({
+  serviceKey,
+  areaCode,
+  keywordList,
+  numOfRows,
+}) {
+  let allItems = [];
+  let totalCount = 0;
+
+  for (const word of keywordList) {
+    /*
+      1. 지역코드를 넣고 검색
+    */
     const createAreaKeywordUrl = (pageNo) => {
       const url = makeCommonUrl(
         "https://apis.data.go.kr/B551011/KorPetTourService2/searchKeyword2",
@@ -354,7 +289,7 @@ async function fetchKeywordExpandedItems({
         numOfRows
       );
 
-      url.searchParams.append("keyword", searchWord);
+      url.searchParams.append("keyword", word);
 
       if (areaCode) {
         url.searchParams.append("areaCode", areaCode);
@@ -363,13 +298,13 @@ async function fetchKeywordExpandedItems({
       return url;
     };
 
-    const areaKeywordResult = await fetchAllPages(createAreaKeywordUrl, 3);
-    allItems = [...allItems, ...areaKeywordResult.items];
-    estimatedTotalCount += areaKeywordResult.totalCount;
+    const areaResult = await fetchAllPages(createAreaKeywordUrl, 5);
+    allItems = [...allItems, ...areaResult.items];
+    totalCount += areaResult.totalCount;
 
     /*
-      3. areaCode 검색에서 빠지는 데이터가 있을 수 있어서
-      전국 키워드 검색 후 주소명으로 지역 필터링도 한 번 더 합니다.
+      2. 지역코드 검색에서 빠지는 경우 대비
+         전국 검색 후 주소에 부산/서울 같은 지역명이 있는지 한 번 더 확인
     */
     if (areaCode) {
       const createNationalKeywordUrl = (pageNo) => {
@@ -380,38 +315,90 @@ async function fetchKeywordExpandedItems({
           numOfRows
         );
 
-        url.searchParams.append("keyword", searchWord);
-
+        url.searchParams.append("keyword", word);
         return url;
       };
 
-      const nationalKeywordResult = await fetchAllPages(
-        createNationalKeywordUrl,
-        2
-      );
+      const nationalResult = await fetchAllPages(createNationalKeywordUrl, 3);
+      const areaFiltered = filterByAreaName(nationalResult.items, areaCode);
 
-      const areaFilteredItems = filterByAreaName(
-        nationalKeywordResult.items,
-        areaCode
-      );
-
-      allItems = [...allItems, ...areaFilteredItems];
+      allItems = [...allItems, ...areaFiltered];
     }
   }
 
-  let uniqueItems = removeDuplicates(allItems);
+  return {
+    items: allItems,
+    totalCount,
+    loadedCount: allItems.length,
+  };
+}
+
+async function fetchExpandedType({
+  serviceKey,
+  areaCode,
+  keyword,
+  contentTypeId,
+  keywordList,
+  numOfRows,
+}) {
+  let allItems = [];
 
   /*
-    사용자가 검색창에 해운대, 광안리, 서면 같은 단어를 입력했을 때
-    결과 안에서 한 번 더 필터링합니다.
+    A. 해당 지역 전체 데이터를 먼저 가져옵니다.
+    여기서 contenttypeid가 맞는 것도 잡고,
+    제목/주소에 관련 단어가 있는 것도 잡습니다.
   */
+  const areaAllResult = await fetchAreaAllItems({
+    serviceKey,
+    areaCode,
+    numOfRows,
+  });
+
+  const relatedFromAreaAll = areaAllResult.items.filter((item) => {
+    const typeMatch = contentTypeId
+      ? String(item.contenttypeid) === String(contentTypeId)
+      : false;
+
+    const wordMatch = filterByWords([item], keywordList).length > 0;
+
+    return typeMatch || wordMatch;
+  });
+
+  allItems = [...allItems, ...relatedFromAreaAll];
+
+  /*
+    B. 공식 분류코드 기준 조회
+  */
+  if (contentTypeId) {
+    const typeResult = await fetchByContentType({
+      serviceKey,
+      areaCode,
+      contentTypeId,
+      numOfRows,
+    });
+
+    allItems = [...allItems, ...typeResult.items];
+  }
+
+  /*
+    C. 관련 키워드 확장 검색
+  */
+  const keywordResult = await fetchByKeywordList({
+    serviceKey,
+    areaCode,
+    keywordList,
+    numOfRows,
+  });
+
+  allItems = [...allItems, ...keywordResult.items];
+
+  let uniqueItems = removeDuplicates(allItems);
   uniqueItems = filterByUserKeyword(uniqueItems, keyword);
 
   return {
     items: uniqueItems,
     totalCount: uniqueItems.length,
     loadedCount: uniqueItems.length,
-    estimatedTotalCount,
   };
 }
 
@@ -429,7 +416,6 @@ export async function GET(request) {
   const radius = searchParams.get("radius") || "10000";
 
   const serviceKey = process.env.TOUR_API_KEY;
-
   const numOfRows = 100;
 
   if (!serviceKey) {
@@ -441,7 +427,7 @@ export async function GET(request) {
 
   try {
     /*
-      1. 내 위치 기반 조회
+      내 위치 기반 조회
     */
     if (mode === "nearby") {
       if (!mapX || !mapY) {
@@ -451,7 +437,7 @@ export async function GET(request) {
         );
       }
 
-      const createNearbyUrl = (pageNo) => {
+      const createUrl = (pageNo) => {
         const url = makeCommonUrl(
           "https://apis.data.go.kr/B551011/KorPetTourService2/locationBasedList2",
           serviceKey,
@@ -471,8 +457,7 @@ export async function GET(request) {
         return url;
       };
 
-      const result = await fetchAllPages(createNearbyUrl, 5);
-
+      const result = await fetchAllPages(createUrl, 10);
       let items = removeDuplicates(result.items);
 
       if (petCafe === "1") {
@@ -481,17 +466,16 @@ export async function GET(request) {
 
       return NextResponse.json({
         items,
-        totalCount: result.totalCount,
+        totalCount: items.length,
         loadedCount: items.length,
       });
     }
 
     /*
-      2. 카페/애견카페
-      별도 메뉴입니다.
+      카페/애견카페
     */
     if (petCafe === "1") {
-      const result = await fetchKeywordExpandedItems({
+      const result = await fetchExpandedType({
         serviceKey,
         areaCode,
         keyword,
@@ -504,12 +488,10 @@ export async function GET(request) {
     }
 
     /*
-      3. 유형 선택이 있는 경우
-      음식점뿐 아니라 관광지, 문화시설, 축제/공연, 레포츠, 숙박, 쇼핑까지
-      모두 "분류코드 + 관련 키워드"로 확장 검색합니다.
+      유형 선택 있음
     */
     if (contentTypeId && TYPE_KEYWORDS[contentTypeId]) {
-      const result = await fetchKeywordExpandedItems({
+      const result = await fetchExpandedType({
         serviceKey,
         areaCode,
         keyword,
@@ -522,67 +504,54 @@ export async function GET(request) {
     }
 
     /*
-      4. 전국 첫 화면
-      검색어, 지역, 유형이 모두 없을 때는 전국에서 조금씩 가져옵니다.
+      검색어가 있는 일반 검색
     */
-    if (!keyword && !areaCode && !contentTypeId) {
-      const requests = AREA_CODES.map(async (code) => {
-        const createAreaUrl = (pageNo) => {
-          const url = makeCommonUrl(
-            "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
-            serviceKey,
-            pageNo,
-            20
-          );
+    if (keyword) {
+      const createUrl = (pageNo) => {
+        const url = makeCommonUrl(
+          "https://apis.data.go.kr/B551011/KorPetTourService2/searchKeyword2",
+          serviceKey,
+          pageNo,
+          numOfRows
+        );
 
-          url.searchParams.append("areaCode", code);
+        url.searchParams.append("keyword", keyword);
 
-          return url;
-        };
+        if (areaCode) {
+          url.searchParams.append("areaCode", areaCode);
+        }
 
-        const result = await fetchAllPages(createAreaUrl, 1);
-        return result.items;
-      });
+        return url;
+      };
 
-      const results = await Promise.all(requests);
-      const allItems = results.flat();
-      const uniqueItems = removeDuplicates(allItems);
+      const result = await fetchAllPages(createUrl, 30);
+      let items = removeDuplicates(result.items);
+
+      if (areaCode) {
+        items = filterByAreaName(items, areaCode);
+      }
 
       return NextResponse.json({
-        items: uniqueItems,
-        totalCount: uniqueItems.length,
-        loadedCount: uniqueItems.length,
+        items,
+        totalCount: items.length,
+        loadedCount: items.length,
       });
     }
 
     /*
-      5. 일반 조회
-      검색어만 있거나, 지역만 선택한 경우입니다.
+      지역만 선택 또는 전국 전체
     */
-    const baseUrl = keyword
-      ? "https://apis.data.go.kr/B551011/KorPetTourService2/searchKeyword2"
-      : "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2";
+    const areaResult = await fetchAreaAllItems({
+      serviceKey,
+      areaCode,
+      numOfRows,
+    });
 
-    const createUrl = (pageNo) => {
-      const url = makeCommonUrl(baseUrl, serviceKey, pageNo, numOfRows);
-
-      if (keyword) {
-        url.searchParams.append("keyword", keyword);
-      }
-
-      if (areaCode) {
-        url.searchParams.append("areaCode", areaCode);
-      }
-
-      return url;
-    };
-
-    const result = await fetchAllPages(createUrl, 10);
-    const uniqueItems = removeDuplicates(result.items);
+    const uniqueItems = removeDuplicates(areaResult.items);
 
     return NextResponse.json({
       items: uniqueItems,
-      totalCount: result.totalCount,
+      totalCount: uniqueItems.length,
       loadedCount: uniqueItems.length,
     });
   } catch (error) {
