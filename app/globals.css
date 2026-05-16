@@ -118,7 +118,7 @@ h1 {
   width: min(360px, 100%);
   aspect-ratio: 1 / 1;
   border-radius: 50%;
-  overflow: hidden; /* 동그라미 밖 잘라내기 */
+  overflow: hidden;
   background:
     radial-gradient(circle at 50% 48%, #fffdf8 0%, #ffe9f0 68%, #ffd6e2 100%);
   border: 12px solid #ffffff;
@@ -158,15 +158,15 @@ h1 {
   z-index: 4;
 }
 
-/* 강아지 이미지: 얼굴+몸통 클로즈업 */
+/* 강아지 이미지: 얼굴 클로즈업 중심 */
 .dogFrame img {
   position: absolute;
   z-index: 2;
-  width: 165%;
+  width: 245%;
   max-width: none;
   height: auto;
-  left: 58%;
-  top: 54%;
+  left: 70%;
+  top: 45%;
   transform: translate(-50%, -50%);
   filter: drop-shadow(0 16px 20px rgba(137, 91, 90, 0.16));
 }
@@ -697,9 +697,9 @@ h2 {
   }
 
   .dogFrame img {
-    width: 170%;
-    left: 58%;
-    top: 54%;
+    width: 255%;
+    left: 70%;
+    top: 45%;
   }
 }
 
