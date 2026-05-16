@@ -87,7 +87,9 @@ export default function Home() {
       <section className="hero">
         <div className="heroTextArea">
           <p className="badge">🐾 한국관광공사 공공데이터 활용</p>
-          <h1>너랑 걷는 오늘</h1>
+
+          <h1>댕댕이랑 어디가?</h1>
+
           <p className="heroText">
             우리 강아지와 함께 갈 수 있는 따뜻한 장소를 찾아보세요.
           </p>
@@ -97,6 +99,7 @@ export default function Home() {
           <div className="dogFrame">
             <img src="/dog.png" alt="토끼 옷을 입은 귀여운 강아지" />
           </div>
+
           <div className="bow">🎀</div>
           <div className="heart heart1">♡</div>
           <div className="heart heart2">♡</div>
@@ -190,6 +193,7 @@ function PlaceCard({ place, onSelect }) {
         <span className="category">
           {getCategoryIcon(typeName)} {typeName}
         </span>
+
         <h2>{place.title || "이름 없는 장소"}</h2>
 
         {place.addr1 && (
@@ -247,6 +251,7 @@ function PlaceModal({ place, onClose }) {
           <span className="category">
             {getCategoryIcon(typeName)} {typeName}
           </span>
+
           <h2>{place.title || "반려동물 동반 장소"}</h2>
 
           <div className="detailList">
