@@ -118,9 +118,7 @@ h1 {
   width: min(360px, 100%);
   aspect-ratio: 1 / 1;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
+  overflow: hidden; /* 동그라미 밖 잘라내기 */
   background:
     radial-gradient(circle at 50% 48%, #fffdf8 0%, #ffe9f0 68%, #ffd6e2 100%);
   border: 12px solid #ffffff;
@@ -131,10 +129,11 @@ h1 {
   animation: softFloat 3.4s ease-in-out infinite;
 }
 
+/* 점선 원 */
 .dogFrame::before {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: 8px;
   border-radius: 50%;
   border: 3px dashed rgba(247, 153, 168, 0.46);
   z-index: 3;
@@ -159,17 +158,17 @@ h1 {
   z-index: 4;
 }
 
+/* 강아지 이미지: 얼굴+몸통 클로즈업 */
 .dogFrame img {
   position: absolute;
-  width: 132%;
-  height: auto;
-  left: 50%;
-  top: 52%;
-  transform: translate(-52%, -48%);
-  object-fit: contain;
-  object-position: center;
-  filter: drop-shadow(0 18px 18px rgba(137, 91, 90, 0.18));
   z-index: 2;
+  width: 165%;
+  max-width: none;
+  height: auto;
+  left: 58%;
+  top: 54%;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 16px 20px rgba(137, 91, 90, 0.16));
 }
 
 /* 리본 */
@@ -695,6 +694,12 @@ h2 {
 
   .heroDog {
     min-height: 280px;
+  }
+
+  .dogFrame img {
+    width: 170%;
+    left: 58%;
+    top: 54%;
   }
 }
 
