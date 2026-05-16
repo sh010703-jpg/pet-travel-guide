@@ -172,10 +172,10 @@ async function fetchByContentType({
 
   let items = removeDuplicates(result.items);
 
-  // 선택한 카테고리와 정확히 일치하는 것만 다시 확인
+  // 선택한 카테고리와 정확히 일치하는 것만 남김
   items = filterExactContentType(items, contentTypeId);
 
-  // 검색어가 있으면 해당 카테고리 안에서만 검색
+  // 검색어가 있으면 그 카테고리 안에서만 검색
   items = filterByKeywordInResult(items, keyword);
 
   return {
@@ -308,9 +308,6 @@ export async function GET(request) {
   }
 
   try {
-    /*
-      1. 내 위치에서 가까운 곳
-    */
     if (mode === "nearby") {
       if (!mapX || !mapY) {
         return NextResponse.json(
@@ -331,11 +328,6 @@ export async function GET(request) {
       return NextResponse.json(result);
     }
 
-    /*
-      2. 카테고리 선택
-      여기서는 절대 키워드 확장 검색을 하지 않습니다.
-      선택한 contentTypeId와 정확히 일치하는 장소만 반환합니다.
-    */
     if (contentTypeId && VALID_CONTENT_TYPES[contentTypeId]) {
       const result = await fetchByContentType({
         serviceKey,
@@ -348,11 +340,6 @@ export async function GET(request) {
       return NextResponse.json(result);
     }
 
-    /*
-      3. 검색어만 있는 경우
-      카테고리가 없으므로 전체 검색입니다.
-      이 경우에는 여러 유형이 섞일 수 있습니다.
-    */
     if (keyword) {
       const createUrl = (pageNo) => {
         const url = makeCommonUrl(
@@ -381,10 +368,6 @@ export async function GET(request) {
       });
     }
 
-    /*
-      4. 지역만 선택 또는 전체
-      전체 장소를 보여주는 것이므로 여러 유형이 섞일 수 있습니다.
-    */
     const result = await fetchAreaOnly({
       serviceKey,
       areaCode,
