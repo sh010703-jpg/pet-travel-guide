@@ -4,13 +4,13 @@
 
 body {
   margin: 0;
-  color: #3f3033;
+  color: #3d2f33;
   font-family: Arial, "Noto Sans KR", sans-serif;
   background:
-    radial-gradient(circle at 8% 8%, rgba(255, 190, 208, 0.42), transparent 26%),
-    radial-gradient(circle at 90% 8%, rgba(255, 226, 178, 0.55), transparent 32%),
-    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.9), transparent 30%),
-    linear-gradient(180deg, #fff0f5 0%, #fff7ed 45%, #ffffff 100%);
+    radial-gradient(circle at 8% 8%, rgba(255, 190, 210, 0.48), transparent 28%),
+    radial-gradient(circle at 92% 10%, rgba(255, 232, 188, 0.58), transparent 34%),
+    radial-gradient(circle at 55% 0%, rgba(255, 255, 255, 0.92), transparent 30%),
+    linear-gradient(180deg, #fff0f6 0%, #fff7ee 48%, #ffffff 100%);
 }
 
 main {
@@ -27,20 +27,18 @@ main {
   grid-template-columns: 1.08fr 0.92fr;
   align-items: center;
   gap: 28px;
-  padding: 64px 58px;
+  padding: 68px 58px;
   border-radius: 38px;
-  color: #3f3033;
-  text-align: left;
   margin-bottom: 28px;
   background:
-    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.94), transparent 27%),
-    radial-gradient(circle at 82% 24%, rgba(255, 255, 255, 0.88), transparent 24%),
-    radial-gradient(circle at 20% 86%, rgba(255, 215, 226, 0.58), transparent 24%),
-    linear-gradient(135deg, #ffe7ef 0%, #fff4e8 52%, #fffdf8 100%);
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.96), transparent 28%),
+    radial-gradient(circle at 80% 22%, rgba(255, 255, 255, 0.92), transparent 28%),
+    radial-gradient(circle at 18% 86%, rgba(255, 218, 230, 0.64), transparent 25%),
+    linear-gradient(135deg, #ffe8f0 0%, #fff4e8 52%, #fffdf7 100%);
+  border: 1px solid rgba(255, 205, 218, 0.95);
   box-shadow:
-    0 24px 64px rgba(210, 122, 141, 0.18),
-    inset 0 0 0 1px rgba(255, 205, 216, 0.72);
-  border: 1px solid rgba(255, 210, 221, 0.95);
+    0 26px 68px rgba(215, 125, 145, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.62);
 }
 
 .hero::before {
@@ -56,9 +54,9 @@ main {
 .hero::after {
   content: "♡  ♡  ✦  ♡";
   position: absolute;
-  right: 52px;
+  right: 46px;
   top: 42px;
-  color: rgba(245, 129, 147, 0.55);
+  color: rgba(244, 128, 150, 0.6);
   font-size: 30px;
   letter-spacing: 18px;
   animation: softFloat 4.2s ease-in-out infinite;
@@ -73,7 +71,7 @@ main {
   display: inline-block;
   padding: 11px 20px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.96);
   color: #d86f82;
   font-size: 14px;
   font-weight: 900;
@@ -89,7 +87,7 @@ h1 {
   line-height: 1.12;
   color: #3c2c2f;
   animation: titlePop 0.9s ease both;
-  text-shadow: 0 3px 0 rgba(255, 255, 255, 0.65);
+  text-shadow: 0 4px 0 rgba(255, 255, 255, 0.65);
 }
 
 .heroText {
@@ -102,6 +100,7 @@ h1 {
   animation-delay: 0.16s;
 }
 
+/* 강아지 영역 */
 .heroDog {
   position: relative;
   z-index: 1;
@@ -119,7 +118,7 @@ h1 {
   display: grid;
   place-items: center;
   background:
-    radial-gradient(circle at 50% 48%, #fffaf4 0%, #ffe9ee 70%, #ffd6df 100%);
+    radial-gradient(circle at 50% 48%, #fffdf8 0%, #ffe9f0 68%, #ffd6e2 100%);
   border: 12px solid #ffffff;
   box-shadow:
     0 24px 54px rgba(202, 121, 139, 0.25),
@@ -133,14 +132,14 @@ h1 {
   position: absolute;
   inset: -18px;
   border-radius: 50%;
-  border: 3px dashed rgba(247, 153, 168, 0.45);
+  border: 3px dashed rgba(247, 153, 168, 0.46);
 }
 
 .dogFrame::after {
   content: "♡";
   position: absolute;
-  right: 12px;
-  bottom: 22px;
+  right: 10px;
+  bottom: 24px;
   width: 48px;
   height: 48px;
   display: grid;
@@ -153,8 +152,8 @@ h1 {
 }
 
 .dogFrame img {
-  width: 86%;
-  height: 86%;
+  width: 92%;
+  height: 92%;
   object-fit: contain;
   object-position: center bottom;
   filter: drop-shadow(0 18px 18px rgba(137, 91, 90, 0.18));
@@ -162,12 +161,37 @@ h1 {
 
 .bow {
   position: absolute;
-  bottom: 18px;
+  bottom: 8px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 44px;
+  font-size: 46px;
   filter: drop-shadow(0 10px 14px rgba(215, 125, 142, 0.22));
   animation: heartBeat 2.5s ease-in-out infinite;
+}
+
+.heart {
+  position: absolute;
+  color: #f07f91;
+  font-size: 30px;
+  opacity: 0.8;
+  animation: softFloat 3s ease-in-out infinite;
+}
+
+.heart1 {
+  right: 28px;
+  top: 40px;
+}
+
+.heart2 {
+  left: 54px;
+  top: 72px;
+  font-size: 24px;
+}
+
+.heart3 {
+  right: 70px;
+  bottom: 58px;
+  font-size: 22px;
 }
 
 /* 검색 영역 */
@@ -178,7 +202,7 @@ h1 {
   margin: 12px 0 22px;
   padding: 18px;
   border-radius: 30px;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 18px 46px rgba(210, 122, 141, 0.13);
   border: 1px solid #f7cbd3;
 }
@@ -191,7 +215,7 @@ h1 {
   padding: 17px 18px;
   font-size: 16px;
   background: #fffdfb;
-  color: #3f3033;
+  color: #3d2f33;
   outline: none;
   transition: border 0.2s ease, box-shadow 0.2s ease;
 }
@@ -250,20 +274,16 @@ h1 {
   cursor: pointer;
   padding: 15px 22px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #ff9aaa 0%, #ef7f91 100%);
+  background: #5c4a50;
   color: white;
   font-size: 15px;
   font-weight: 900;
-  box-shadow: 0 14px 30px rgba(239, 127, 145, 0.3);
+  box-shadow: 0 14px 30px rgba(92, 74, 80, 0.22);
   animation: buttonBounce 2.2s ease-in-out infinite;
 }
 
 .recommendButton::before {
   content: "💗 ";
-}
-
-.recommendButton::after {
-  content: " ✨";
 }
 
 .recommendButton:hover {
@@ -275,7 +295,7 @@ h1 {
   padding: 24px;
   border-radius: 24px;
   background: white;
-  color: #3f3033;
+  color: #3d2f33;
   box-shadow: 0 14px 32px rgba(210, 122, 141, 0.12);
 }
 
@@ -363,7 +383,7 @@ h2 {
   font-size: 23px;
   letter-spacing: -0.8px;
   line-height: 1.35;
-  color: #3f3033;
+  color: #3d2f33;
 }
 
 .info {
@@ -375,7 +395,7 @@ h2 {
 .info strong {
   display: inline-block;
   margin-right: 6px;
-  color: #3f3033;
+  color: #3d2f33;
 }
 
 .description {
@@ -409,7 +429,7 @@ h2 {
 }
 
 .buttons a {
-  background: #6b555b;
+  background: #5c4a50;
 }
 
 .buttons a:hover,
@@ -435,7 +455,7 @@ h2 {
   max-height: 90vh;
   overflow-y: auto;
   background: #ffffff;
-  color: #3f3033;
+  color: #3d2f33;
   border-radius: 34px;
   position: relative;
   box-shadow: 0 34px 100px rgba(72, 49, 54, 0.34);
@@ -450,7 +470,7 @@ h2 {
   border: none;
   border-radius: 999px;
   padding: 10px 16px;
-  background: #6b555b;
+  background: #5c4a50;
   color: white;
   font-weight: 900;
   cursor: pointer;
@@ -494,7 +514,7 @@ h2 {
 }
 
 .detailList strong {
-  color: #3f3033;
+  color: #3d2f33;
 }
 
 .detailList span {
@@ -510,7 +530,7 @@ h2 {
 
 .contentsBox h3 {
   margin: 0 0 12px;
-  color: #3f3033;
+  color: #3d2f33;
 }
 
 .contentsBox p {
@@ -523,7 +543,7 @@ h2 {
   margin-top: 24px;
 }
 
-/* 귀여운 움직임 효과 */
+/* 애니메이션 */
 @keyframes softFloat {
   0% {
     transform: translateY(0);
