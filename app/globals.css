@@ -24,7 +24,7 @@ main {
   position: relative;
   overflow: hidden;
   display: grid;
-  grid-template-columns: 0.92fr 1.08fr;
+  grid-template-columns: 0.95fr 1.05fr;
   align-items: center;
   gap: 36px;
   padding: 68px 58px;
@@ -41,7 +41,6 @@ main {
     inset 0 0 0 1px rgba(255, 255, 255, 0.62);
 }
 
-/* 왼쪽 아래 발바닥 */
 .hero::before {
   content: "🐾";
   position: absolute;
@@ -50,18 +49,6 @@ main {
   font-size: 62px;
   opacity: 0.24;
   animation: pawMove 4s ease-in-out infinite;
-}
-
-/* 오른쪽 위 하트 장식 */
-.hero::after {
-  content: "♡  ♡  ✦  ♡";
-  position: absolute;
-  right: 42px;
-  top: 36px;
-  color: rgba(244, 128, 150, 0.68);
-  font-size: 38px;
-  letter-spacing: 18px;
-  animation: softFloat 4.2s ease-in-out infinite;
 }
 
 .heroTextArea {
@@ -103,110 +90,27 @@ h1 {
   animation-delay: 0.16s;
 }
 
-/* 강아지 영역 */
+/* 강아지 뱃지 영역 */
 .heroDog {
-  position: relative;
-  z-index: 1;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 330px;
 }
 
-.dogFrame {
-  position: relative;
-  width: min(360px, 100%);
-  aspect-ratio: 1 / 1;
-  border-radius: 50%;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 48%, #fffdf8 0%, #ffe9f0 68%, #ffd6e2 100%);
-  border: 12px solid #ffffff;
-  box-shadow:
-    0 24px 54px rgba(202, 121, 139, 0.25),
-    0 0 0 10px rgba(255, 213, 223, 0.72),
-    0 0 0 20px rgba(255, 246, 232, 0.84);
+.dogBadgeWrap {
+  width: min(440px, 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
   animation: softFloat 3.4s ease-in-out infinite;
 }
 
-/* 점선 원 */
-.dogFrame::before {
-  content: "";
-  position: absolute;
-  inset: 8px;
-  border-radius: 50%;
-  border: 3px dashed rgba(247, 153, 168, 0.46);
-  z-index: 3;
-  pointer-events: none;
-}
-
-/* 동그라미 안쪽 하트 */
-.dogFrame::after {
-  content: "♡";
-  position: absolute;
-  right: 10px;
-  bottom: 20px;
-  width: 58px;
-  height: 58px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #ffffff;
-  color: #f07f91;
-  font-size: 34px;
-  box-shadow: 0 12px 26px rgba(215, 125, 142, 0.18);
-  z-index: 4;
-}
-
-/* 강아지 이미지: 얼굴 + 가슴 중심 */
-.dogFrame img {
-  position: absolute;
-  z-index: 2;
-  width: 185%;
-  max-width: none;
+.dogBadgeImage {
+  width: 100%;
+  max-width: 420px;
   height: auto;
-  left: 43%;
-  top: 47%;
-  transform: translate(-50%, -50%);
-  filter: drop-shadow(0 16px 20px rgba(137, 91, 90, 0.16));
-}
-
-/* 리본 */
-.bow {
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 54px;
-  filter: drop-shadow(0 10px 14px rgba(215, 125, 142, 0.22));
-  animation: heartBeat 2.5s ease-in-out infinite;
-  z-index: 5;
-}
-
-/* 떠다니는 하트 */
-.heart {
-  position: absolute;
-  color: #f07f91;
-  font-size: 38px;
-  opacity: 0.85;
-  animation: softFloat 3s ease-in-out infinite;
-}
-
-.heart1 {
-  right: 18px;
-  top: 34px;
-}
-
-.heart2 {
-  left: 42px;
-  top: 64px;
-  font-size: 31px;
-}
-
-.heart3 {
-  right: 58px;
-  bottom: 48px;
-  font-size: 29px;
+  display: block;
+  filter: drop-shadow(0 20px 30px rgba(215, 125, 145, 0.22));
 }
 
 /* 검색 영역 */
@@ -640,17 +544,6 @@ h2 {
   }
 }
 
-@keyframes heartBeat {
-  0%,
-  100% {
-    transform: translateX(-50%) scale(1);
-  }
-
-  50% {
-    transform: translateX(-50%) scale(1.12);
-  }
-}
-
 /* 반응형 */
 @media (max-width: 980px) {
   .grid {
@@ -688,18 +581,8 @@ h2 {
     margin-right: auto;
   }
 
-  .dogFrame {
-    width: min(280px, 82%);
-  }
-
-  .heroDog {
-    min-height: 280px;
-  }
-
-  .dogFrame img {
-    width: 190%;
-    left: 43%;
-    top: 47%;
+  .dogBadgeWrap {
+    width: min(320px, 88%);
   }
 }
 
