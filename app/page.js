@@ -84,79 +84,20 @@ export default function Home() {
 
   return (
     <main>
-      <nav className="topNav">
-        <div className="logo">
-          <span>댕댕이랑</span>
-          <strong>어디가?</strong>
-        </div>
-
-        <div className="navLinks">
-          <a href="#home">홈</a>
-          <a href="#places">여행지</a>
-          <a href="#walk">산책코스</a>
-          <a href="#stay">숙소</a>
-          <a href="#pick">오늘추천</a>
-        </div>
-      </nav>
-
-      <section className="hero" id="home">
-        <div className="heroObject">
-          <div className="dogHouse">
-            <div className="roof"></div>
-            <div className="houseBody">
-              <div className="door"></div>
-            </div>
-            <div className="houseBase"></div>
-          </div>
-
-          <div className="dogCircle">
-            <img src="/dog.jpg" alt="토끼 옷을 입은 귀여운 강아지" />
-          </div>
-
-          <div className="speechBubble">오늘은 어디 갈까?</div>
-          <div className="miniIcon iconBag">🎒</div>
-          <div className="miniIcon iconBone">🦴</div>
-          <div className="miniIcon iconPaw">🐾</div>
-          <div className="miniIcon iconHeart">💕</div>
-        </div>
-
+      <section className="hero">
         <div className="heroTextArea">
-          <p className="badge">한국관광공사 공공데이터 활용</p>
-
-          <h1>
-            Welcome
-            <br />
-            to the WORLD
-            <br />
-            of PET TRIP!
-          </h1>
-
-          <h2 className="heroTitle">같이 가개!</h2>
-
+          <p className="badge">🐾 한국관광공사 공공데이터 활용</p>
+          <h1>너랑 걷는 오늘</h1>
           <p className="heroText">
-            반려견과 함께 떠나는 오늘의 나들이.
-            <br />
-            관광지, 산책길, 숙소, 쇼핑 공간까지
-            <br />
-            공공데이터로 따뜻하게 찾아드려요.
+            우리 강아지와 함께 갈 수 있는 따뜻한 장소를 찾아보세요.
           </p>
         </div>
-      </section>
 
-      <section className="quickPanel">
-        <div className="quickItem">
-          <span>오늘의 추천</span>
-          <strong>반려견 동반 장소</strong>
-        </div>
-
-        <div className="quickItem">
-          <span>인기 유형</span>
-          <strong>관광지 · 숙박 · 쇼핑</strong>
-        </div>
-
-        <div className="quickItem">
-          <span>이용 안내</span>
-          <strong>방문 전 동반 조건 확인</strong>
+        <div className="heroDog">
+          <div className="dogFrame">
+            <img src="/dog.png" alt="토끼 옷을 입은 귀여운 강아지" />
+          </div>
+          <div className="bow">🎀</div>
         </div>
       </section>
 
@@ -180,11 +121,11 @@ export default function Home() {
         </select>
 
         <button type="submit" className="searchButton">
-          찾아보기
+          검색
         </button>
       </form>
 
-      <section className="resultInfo" id="places">
+      <section className="resultInfo">
         <p>
           총 <strong>{filteredPlaces.length}</strong>개의 반려동물 동반 장소가
           검색되었습니다.
@@ -243,9 +184,7 @@ function PlaceCard({ place, onSelect }) {
       </div>
 
       <div className="cardBody">
-        <span className="category">
-          {getCategoryIcon(typeName)} {typeName}
-        </span>
+        <span className="category">{getCategoryIcon(typeName)} {typeName}</span>
         <h2>{place.title || "이름 없는 장소"}</h2>
 
         {place.addr1 && (
@@ -300,9 +239,7 @@ function PlaceModal({ place, onClose }) {
         )}
 
         <div className="modalBody">
-          <span className="category">
-            {getCategoryIcon(typeName)} {typeName}
-          </span>
+          <span className="category">{getCategoryIcon(typeName)} {typeName}</span>
           <h2>{place.title || "반려동물 동반 장소"}</h2>
 
           <div className="detailList">
