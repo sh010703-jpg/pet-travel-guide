@@ -25,14 +25,15 @@ const AREA_LIST = [
 ];
 
 const TYPE_LIST = [
-  { name: "전체", code: "" },
-  { name: "관광지", code: "12" },
-  { name: "문화시설", code: "14" },
-  { name: "축제/공연", code: "15" },
-  { name: "레포츠", code: "28" },
-  { name: "숙박", code: "32" },
-  { name: "쇼핑", code: "38" },
-  { name: "음식점", code: "39" },
+  { name: "전체", code: "", mode: "normal" },
+  { name: "관광지", code: "12", mode: "normal" },
+  { name: "문화시설", code: "14", mode: "normal" },
+  { name: "축제/공연", code: "15", mode: "normal" },
+  { name: "레포츠", code: "28", mode: "normal" },
+  { name: "숙박", code: "32", mode: "normal" },
+  { name: "쇼핑", code: "38", mode: "normal" },
+  { name: "음식점", code: "39", mode: "normal" },
+  { name: "카페/애견카페", code: "petCafe", mode: "petCafe" },
 ];
 
 export default function Home() {
@@ -44,18 +45,24 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  function getSelectedTypeInfo(typeCode = selectedType) {
+    return TYPE_LIST.find((type) => type.code === typeCode) || TYPE_LIST[0];
+  }
+
   async function loadPlaces({
     searchKeyword = keyword,
     areaCode = selectedArea,
-    contentTypeId = selectedType,
+    typeCode = selectedType,
   } = {}) {
     try {
       setLoading(true);
       setError("");
 
+      const selectedTypeInfo = getSelectedTypeInfo(typeCode);
+
       const params = new URLSearchParams();
       params.append("pageNo", "1");
-      params.append("numOfRows", "80");
+      params.append("numOfRows", "120");
 
       if (searchKeyword.trim()) {
         params.append("keyword", searchKeyword.trim());
@@ -65,8 +72,10 @@ export default function Home() {
         params.append("areaCode", areaCode);
       }
 
-      if (contentTypeId) {
-        params.append("contentTypeId", contentTypeId);
+      if (selectedTypeInfo.mode === "petCafe") {
+        params.append("petCafe", "1");
+      } else if (selectedTypeInfo.code) {
+        params.append("contentTypeId", selectedTypeInfo.code);
       }
 
       const res = await fetch(`/api/places?${params.toString()}`);
@@ -98,6 +107,7 @@ export default function Home() {
           setError("");
 
           const { latitude, longitude } = position.coords;
+          const selectedTypeInfo = getSelectedTypeInfo();
 
           const params = new URLSearchParams();
           params.append("mode", "nearby");
@@ -105,10 +115,10 @@ export default function Home() {
           params.append("mapY", latitude);
           params.append("radius", "10000");
           params.append("pageNo", "1");
-          params.append("numOfRows", "80");
+          params.append("numOfRows", "120");
 
-          if (selectedType) {
-            params.append("contentTypeId", selectedType);
+          if (selectedTypeInfo.mode !== "petCafe" && selectedTypeInfo.code) {
+            params.append("contentTypeId", selectedTypeInfo.code);
           }
 
           const res = await fetch(`/api/places?${params.toString()}`);
@@ -120,7 +130,21 @@ export default function Home() {
             );
           }
 
-          setPlaces(data.items || []);
+          let nearbyItems = data.items || [];
+
+          if (selectedTypeInfo.mode === "petCafe") {
+            nearbyItems = nearbyItems.filter((place) => {
+              const text = `
+                ${place.title || ""}
+                ${place.addr1 || ""}
+                ${place.addr2 || ""}
+              `;
+
+              return text.includes("카페") || text.includes("애견");
+            });
+          }
+
+          setPlaces(nearbyItems);
           setKeyword("");
           setSelectedArea("");
         } catch (err) {
@@ -142,7 +166,7 @@ export default function Home() {
     loadPlaces({
       searchKeyword: "",
       areaCode: "",
-      contentTypeId: "",
+      typeCode: "",
     });
   }, []);
 
@@ -152,7 +176,7 @@ export default function Home() {
     loadPlaces({
       searchKeyword: keyword,
       areaCode: selectedArea,
-      contentTypeId: selectedType,
+      typeCode: selectedType,
     });
   }
 
@@ -163,18 +187,18 @@ export default function Home() {
     loadPlaces({
       searchKeyword: keyword,
       areaCode,
-      contentTypeId: selectedType,
+      typeCode: selectedType,
     });
   }
 
   function handleTypeChange(e) {
-    const contentTypeId = e.target.value;
-    setSelectedType(contentTypeId);
+    const typeCode = e.target.value;
+    setSelectedType(typeCode);
 
     loadPlaces({
       searchKeyword: keyword,
       areaCode: selectedArea,
-      contentTypeId,
+      typeCode,
     });
   }
 
@@ -258,9 +282,10 @@ export default function Home() {
 
       <section className="resultInfo">
         <p>
-          <strong>{selectedAreaName}</strong> / <strong>{selectedTypeName}</strong>{" "}
-          기준으로 총 <strong>{filteredPlaces.length}</strong>개의 반려동물 동반
-          장소가 검색되었습니다.
+          <strong>{selectedAreaName}</strong> /{" "}
+          <strong>{selectedTypeName}</strong> 기준으로 총{" "}
+          <strong>{filteredPlaces.length}</strong>개의 반려동물 동반 장소가
+          검색되었습니다.
         </p>
 
         <div className="resultButtons">
@@ -289,7 +314,9 @@ export default function Home() {
       {error && <p className="error">오류: {error}</p>}
 
       {!loading && !error && filteredPlaces.length === 0 && (
-        <p className="status">조건에 맞는 장소가 없습니다. 지역이나 유형을 바꿔보세요.</p>
+        <p className="status">
+          조건에 맞는 장소가 없습니다. 지역이나 유형을 바꿔보세요.
+        </p>
       )}
 
       {!loading && !error && filteredPlaces.length > 0 && (
