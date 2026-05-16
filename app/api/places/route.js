@@ -77,7 +77,7 @@ async function fetchTourApi(url) {
   };
 }
 
-async function fetchAllPages(createUrl, maxPages = 30) {
+async function fetchAllPages(createUrl, maxPages = 50) {
   const firstResult = await fetchTourApi(createUrl(1));
 
   let allItems = [...firstResult.items];
@@ -168,14 +168,14 @@ async function fetchByContentType({
     return url;
   };
 
-  const result = await fetchAllPages(createUrl, 30);
+  const result = await fetchAllPages(createUrl, 50);
 
   let items = removeDuplicates(result.items);
 
   // 선택한 카테고리와 정확히 일치하는 것만 남김
   items = filterExactContentType(items, contentTypeId);
 
-  // 검색어가 있으면 그 카테고리 안에서만 검색
+  // 검색어가 있으면 해당 카테고리 안에서만 검색
   items = filterByKeywordInResult(items, keyword);
 
   return {
@@ -186,6 +186,11 @@ async function fetchByContentType({
 }
 
 async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
+  /*
+    지역을 선택한 경우:
+    예) 부산 전체
+    부산에 등록된 반려동물 동반 장소 전체를 여러 페이지 가져옴
+  */
   if (areaCode) {
     const createUrl = (pageNo) => {
       const url = makeCommonUrl(
@@ -200,7 +205,7 @@ async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
       return url;
     };
 
-    const result = await fetchAllPages(createUrl, 30);
+    const result = await fetchAllPages(createUrl, 50);
     const items = removeDuplicates(result.items);
 
     return {
@@ -210,6 +215,11 @@ async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
     };
   }
 
+  /*
+    전국 전체:
+    서울, 부산, 제주 등 모든 지역을 돌면서 각 지역의 전체 페이지를 가져옴
+    이전보다 개수가 적게 나오는 문제를 막기 위해 지역별 maxPages를 늘림
+  */
   let allItems = [];
 
   const requests = AREA_CODES.map(async (code) => {
@@ -218,7 +228,7 @@ async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
         "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
         serviceKey,
         pageNo,
-        30
+        numOfRows
       );
 
       url.searchParams.append("areaCode", code);
@@ -226,7 +236,7 @@ async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
       return url;
     };
 
-    const result = await fetchAllPages(createUrl, 1);
+    const result = await fetchAllPages(createUrl, 50);
     return result.items;
   });
 
@@ -270,7 +280,7 @@ async function fetchNearby({
     return url;
   };
 
-  const result = await fetchAllPages(createUrl, 10);
+  const result = await fetchAllPages(createUrl, 20);
 
   let items = removeDuplicates(result.items);
 
@@ -308,6 +318,9 @@ export async function GET(request) {
   }
 
   try {
+    /*
+      1. 내 위치에서 가까운 곳
+    */
     if (mode === "nearby") {
       if (!mapX || !mapY) {
         return NextResponse.json(
@@ -328,6 +341,14 @@ export async function GET(request) {
       return NextResponse.json(result);
     }
 
+    /*
+      2. 카테고리 선택
+      음식점/카페는 39만,
+      쇼핑은 38만,
+      숙박은 32만,
+      관광지는 12만 가져옴.
+      다른 카테고리가 섞이지 않음.
+    */
     if (contentTypeId && VALID_CONTENT_TYPES[contentTypeId]) {
       const result = await fetchByContentType({
         serviceKey,
@@ -340,6 +361,11 @@ export async function GET(request) {
       return NextResponse.json(result);
     }
 
+    /*
+      3. 검색어만 있는 경우
+      카테고리가 없으므로 전체 키워드 검색.
+      이 경우에는 여러 유형이 섞일 수 있음.
+    */
     if (keyword) {
       const createUrl = (pageNo) => {
         const url = makeCommonUrl(
@@ -358,7 +384,7 @@ export async function GET(request) {
         return url;
       };
 
-      const result = await fetchAllPages(createUrl, 20);
+      const result = await fetchAllPages(createUrl, 30);
       const items = removeDuplicates(result.items);
 
       return NextResponse.json({
@@ -368,6 +394,11 @@ export async function GET(request) {
       });
     }
 
+    /*
+      4. 지역만 선택 또는 전국 전체
+      이 경우에는 전체 장소를 보여주는 것이므로 여러 유형이 섞이는 것이 정상.
+      대신 누락이 적도록 여러 페이지를 가져옴.
+    */
     const result = await fetchAreaOnly({
       serviceKey,
       areaCode,
