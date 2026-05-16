@@ -35,6 +35,8 @@ const TYPE_LIST = [
   { name: "음식점/카페", code: "39" },
 ];
 
+const PAGE_SIZE = 12;
+
 export default function Home() {
   const [places, setPlaces] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -45,6 +47,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [currentPage, setCurrentPage] = useState(1);
+
   async function loadPlaces({
     searchKeyword = keyword,
     areaCode = selectedArea,
@@ -53,6 +57,7 @@ export default function Home() {
     try {
       setLoading(true);
       setError("");
+      setCurrentPage(1);
 
       const params = new URLSearchParams();
       params.append("pageNo", "1");
@@ -99,6 +104,7 @@ export default function Home() {
         try {
           setLoading(true);
           setError("");
+          setCurrentPage(1);
 
           const { latitude, longitude } = position.coords;
 
@@ -193,6 +199,53 @@ export default function Home() {
     return places;
   }, [places]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredPlaces.length / PAGE_SIZE));
+
+  const paginatedPlaces = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    const endIndex = startIndex + PAGE_SIZE;
+
+    return filteredPlaces.slice(startIndex, endIndex);
+  }, [filteredPlaces, currentPage]);
+
+  const startNumber =
+    filteredPlaces.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+
+  const endNumber = Math.min(currentPage * PAGE_SIZE, filteredPlaces.length);
+
+  function goToPage(page) {
+    if (page < 1 || page > totalPages) {
+      return;
+    }
+
+    setCurrentPage(page);
+
+    setTimeout(() => {
+      const resultSection = document.querySelector(".resultInfo");
+      if (resultSection) {
+        resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 50);
+  }
+
+  function getVisiblePageNumbers() {
+    const pages = [];
+    const maxVisible = 5;
+
+    let start = Math.max(1, currentPage - 2);
+    let end = Math.min(totalPages, start + maxVisible - 1);
+
+    if (end - start < maxVisible - 1) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+
+    for (let page = start; page <= end; page++) {
+      pages.push(page);
+    }
+
+    return pages;
+  }
+
   function recommendRandomPlace() {
     if (filteredPlaces.length === 0) {
       alert("추천할 장소가 없습니다. 검색어나 필터를 다시 확인해주세요.");
@@ -262,11 +315,22 @@ export default function Home() {
       </form>
 
       <section className="resultInfo">
-        <p>
-          <strong>{selectedAreaName}</strong> /{" "}
-          <strong>{selectedTypeName}</strong> 기준으로 총{" "}
-          <strong>{totalCount}</strong>개의 반려동물 동반 장소가 검색되었습니다.
-        </p>
+        <div>
+          <p>
+            <strong>{selectedAreaName}</strong> /{" "}
+            <strong>{selectedTypeName}</strong> 기준으로 총{" "}
+            <strong>{totalCount}</strong>개의 반려동물 동반 장소가
+            검색되었습니다.
+          </p>
+
+          {!loading && !error && filteredPlaces.length > 0 && (
+            <p className="pageSummary">
+              현재 <strong>{startNumber}</strong>번부터{" "}
+              <strong>{endNumber}</strong>번까지 표시 중입니다. (
+              {currentPage} / {totalPages}페이지)
+            </p>
+          )}
+        </div>
 
         <div className="resultButtons">
           <button
@@ -300,15 +364,24 @@ export default function Home() {
       )}
 
       {!loading && !error && filteredPlaces.length > 0 && (
-        <section className="grid">
-          {filteredPlaces.map((place) => (
-            <PlaceCard
-              key={place.contentid}
-              place={place}
-              onSelect={() => setSelectedPlace(place)}
-            />
-          ))}
-        </section>
+        <>
+          <section className="grid">
+            {paginatedPlaces.map((place) => (
+              <PlaceCard
+                key={place.contentid}
+                place={place}
+                onSelect={() => setSelectedPlace(place)}
+              />
+            ))}
+          </section>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            visiblePages={getVisiblePageNumbers()}
+            onPageChange={goToPage}
+          />
+        </>
       )}
 
       {selectedPlace && (
@@ -318,6 +391,75 @@ export default function Home() {
         />
       )}
     </main>
+  );
+}
+
+function Pagination({ currentPage, totalPages, visiblePages, onPageChange }) {
+  if (totalPages <= 1) {
+    return null;
+  }
+
+  return (
+    <nav className="pagination" aria-label="페이지 이동">
+      <button
+        type="button"
+        className="pageMoveButton"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+      >
+        이전
+      </button>
+
+      {visiblePages[0] > 1 && (
+        <>
+          <button
+            type="button"
+            className="pageNumberButton"
+            onClick={() => onPageChange(1)}
+          >
+            1
+          </button>
+          <span className="pageDots">...</span>
+        </>
+      )}
+
+      {visiblePages.map((page) => (
+        <button
+          key={page}
+          type="button"
+          className={
+            page === currentPage
+              ? "pageNumberButton activePage"
+              : "pageNumberButton"
+          }
+          onClick={() => onPageChange(page)}
+        >
+          {page}
+        </button>
+      ))}
+
+      {visiblePages[visiblePages.length - 1] < totalPages && (
+        <>
+          <span className="pageDots">...</span>
+          <button
+            type="button"
+            className="pageNumberButton"
+            onClick={() => onPageChange(totalPages)}
+          >
+            {totalPages}
+          </button>
+        </>
+      )}
+
+      <button
+        type="button"
+        className="pageMoveButton"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+      >
+        다음
+      </button>
+    </nav>
   );
 }
 
