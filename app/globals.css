@@ -90,27 +90,22 @@ h1 {
   animation-delay: 0.16s;
 }
 
-/* 강아지 뱃지 영역 */
+/* 강아지 이미지만 표시 */
 .heroDog {
   display: flex;
   justify-content: center;
   align-items: center;
-}
-
-.dogBadgeWrap {
-  width: min(440px, 100%);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  animation: softFloat 3.4s ease-in-out infinite;
+  position: relative;
+  z-index: 1;
 }
 
 .dogBadgeImage {
-  width: 100%;
-  max-width: 420px;
+  width: min(420px, 100%);
   height: auto;
   display: block;
+  border-radius: 28px;
   filter: drop-shadow(0 20px 30px rgba(215, 125, 145, 0.22));
+  animation: softFloat 3.4s ease-in-out infinite;
 }
 
 /* 검색 영역 */
@@ -581,8 +576,8 @@ h2 {
     margin-right: auto;
   }
 
-  .dogBadgeWrap {
-    width: min(320px, 88%);
+  .dogBadgeImage {
+    width: min(320px, 90%);
   }
 }
 
