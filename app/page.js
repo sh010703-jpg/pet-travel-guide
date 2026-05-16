@@ -25,29 +25,25 @@ const AREA_LIST = [
 ];
 
 const TYPE_LIST = [
-  { name: "전체", code: "", mode: "normal" },
-  { name: "관광지", code: "12", mode: "normal" },
-  { name: "문화시설", code: "14", mode: "normal" },
-  { name: "축제/공연", code: "15", mode: "normal" },
-  { name: "레포츠", code: "28", mode: "normal" },
-  { name: "숙박", code: "32", mode: "normal" },
-  { name: "쇼핑", code: "38", mode: "normal" },
-  { name: "음식점", code: "39", mode: "normal" },
-  { name: "카페/애견카페", code: "petCafe", mode: "petCafe" },
+  { name: "전체", code: "" },
+  { name: "관광지", code: "12" },
+  { name: "문화시설", code: "14" },
+  { name: "축제/공연", code: "15" },
+  { name: "레포츠", code: "28" },
+  { name: "숙박", code: "32" },
+  { name: "쇼핑", code: "38" },
+  { name: "음식점/카페", code: "39" },
 ];
 
 export default function Home() {
   const [places, setPlaces] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [keyword, setKeyword] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  function getSelectedTypeInfo(typeCode = selectedType) {
-    return TYPE_LIST.find((type) => type.code === typeCode) || TYPE_LIST[0];
-  }
 
   async function loadPlaces({
     searchKeyword = keyword,
@@ -58,11 +54,9 @@ export default function Home() {
       setLoading(true);
       setError("");
 
-      const selectedTypeInfo = getSelectedTypeInfo(typeCode);
-
       const params = new URLSearchParams();
       params.append("pageNo", "1");
-      params.append("numOfRows", "120");
+      params.append("numOfRows", "100");
 
       if (searchKeyword.trim()) {
         params.append("keyword", searchKeyword.trim());
@@ -72,10 +66,8 @@ export default function Home() {
         params.append("areaCode", areaCode);
       }
 
-      if (selectedTypeInfo.mode === "petCafe") {
-        params.append("petCafe", "1");
-      } else if (selectedTypeInfo.code) {
-        params.append("contentTypeId", selectedTypeInfo.code);
+      if (typeCode) {
+        params.append("contentTypeId", typeCode);
       }
 
       const res = await fetch(`/api/places?${params.toString()}`);
@@ -86,8 +78,10 @@ export default function Home() {
       }
 
       setPlaces(data.items || []);
+      setTotalCount(data.totalCount || data.items?.length || 0);
     } catch (err) {
       setPlaces([]);
+      setTotalCount(0);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -107,7 +101,6 @@ export default function Home() {
           setError("");
 
           const { latitude, longitude } = position.coords;
-          const selectedTypeInfo = getSelectedTypeInfo();
 
           const params = new URLSearchParams();
           params.append("mode", "nearby");
@@ -115,10 +108,10 @@ export default function Home() {
           params.append("mapY", latitude);
           params.append("radius", "10000");
           params.append("pageNo", "1");
-          params.append("numOfRows", "120");
+          params.append("numOfRows", "100");
 
-          if (selectedTypeInfo.mode !== "petCafe" && selectedTypeInfo.code) {
-            params.append("contentTypeId", selectedTypeInfo.code);
+          if (selectedType) {
+            params.append("contentTypeId", selectedType);
           }
 
           const res = await fetch(`/api/places?${params.toString()}`);
@@ -130,25 +123,13 @@ export default function Home() {
             );
           }
 
-          let nearbyItems = data.items || [];
-
-          if (selectedTypeInfo.mode === "petCafe") {
-            nearbyItems = nearbyItems.filter((place) => {
-              const text = `
-                ${place.title || ""}
-                ${place.addr1 || ""}
-                ${place.addr2 || ""}
-              `;
-
-              return text.includes("카페") || text.includes("애견");
-            });
-          }
-
-          setPlaces(nearbyItems);
+          setPlaces(data.items || []);
+          setTotalCount(data.totalCount || data.items?.length || 0);
           setKeyword("");
           setSelectedArea("");
         } catch (err) {
           setPlaces([]);
+          setTotalCount(0);
           setError(err.message);
         } finally {
           setLoading(false);
@@ -284,8 +265,7 @@ export default function Home() {
         <p>
           <strong>{selectedAreaName}</strong> /{" "}
           <strong>{selectedTypeName}</strong> 기준으로 총{" "}
-          <strong>{filteredPlaces.length}</strong>개의 반려동물 동반 장소가
-          검색되었습니다.
+          <strong>{totalCount}</strong>개의 반려동물 동반 장소가 검색되었습니다.
         </p>
 
         <div className="resultButtons">
@@ -497,7 +477,7 @@ function getContentTypeName(contenttypeid) {
     "28": "레포츠",
     "32": "숙박",
     "38": "쇼핑",
-    "39": "음식점",
+    "39": "음식점/카페",
   };
 
   return types[String(contenttypeid)] || "기타";
@@ -511,7 +491,7 @@ function getCategoryIcon(typeName) {
     레포츠: "🏃",
     숙박: "🏡",
     쇼핑: "🛍️",
-    음식점: "☕",
+    "음식점/카페": "☕",
     기타: "🐾",
   };
 
