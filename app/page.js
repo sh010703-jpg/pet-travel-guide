@@ -3,25 +3,25 @@
 import { useEffect, useMemo, useState } from "react";
 import "./globals.css";
 
-const AREA_OPTIONS = [
-  { label: "전국", value: "" },
-  { label: "서울", value: "1" },
-  { label: "인천", value: "2" },
-  { label: "대전", value: "3" },
-  { label: "대구", value: "4" },
-  { label: "광주", value: "5" },
-  { label: "부산", value: "6" },
-  { label: "울산", value: "7" },
-  { label: "세종", value: "8" },
-  { label: "경기", value: "31" },
-  { label: "강원", value: "32" },
-  { label: "충북", value: "33" },
-  { label: "충남", value: "34" },
-  { label: "경북", value: "35" },
-  { label: "경남", value: "36" },
-  { label: "전북", value: "37" },
-  { label: "전남", value: "38" },
-  { label: "제주", value: "39" },
+const AREA_LIST = [
+  { name: "전국", code: "" },
+  { name: "서울", code: "1" },
+  { name: "인천", code: "2" },
+  { name: "대전", code: "3" },
+  { name: "대구", code: "4" },
+  { name: "광주", code: "5" },
+  { name: "부산", code: "6" },
+  { name: "울산", code: "7" },
+  { name: "세종", code: "8" },
+  { name: "경기", code: "31" },
+  { name: "강원", code: "32" },
+  { name: "충북", code: "33" },
+  { name: "충남", code: "34" },
+  { name: "경북", code: "35" },
+  { name: "경남", code: "36" },
+  { name: "전북", code: "37" },
+  { name: "전남", code: "38" },
+  { name: "제주", code: "39" },
 ];
 
 export default function Home() {
@@ -31,9 +31,7 @@ export default function Home() {
   const [selectedType, setSelectedType] = useState("전체");
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [locationLoading, setLocationLoading] = useState(false);
   const [error, setError] = useState("");
-  const [modeText, setModeText] = useState("전국");
 
   async function loadPlaces(searchKeyword = keyword, areaCode = selectedArea) {
     try {
@@ -41,15 +39,15 @@ export default function Home() {
       setError("");
 
       const params = new URLSearchParams();
-      params.set("pageNo", "1");
-      params.set("numOfRows", "100");
+      params.append("pageNo", "1");
+      params.append("numOfRows", "80");
 
       if (searchKeyword.trim()) {
-        params.set("keyword", searchKeyword.trim());
+        params.append("keyword", searchKeyword.trim());
       }
 
       if (areaCode) {
-        params.set("areaCode", areaCode);
+        params.append("areaCode", areaCode);
       }
 
       const res = await fetch(`/api/places?${params.toString()}`);
@@ -60,13 +58,60 @@ export default function Home() {
       }
 
       setPlaces(data.items || []);
-      setModeText(getModeText(searchKeyword, areaCode));
     } catch (err) {
       setError(err.message);
       setPlaces([]);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function findNearbyPlaces() {
+    if (!navigator.geolocation) {
+      alert("현재 브라우저에서는 위치 정보를 사용할 수 없습니다.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          setLoading(true);
+          setError("");
+
+          const { latitude, longitude } = position.coords;
+
+          const params = new URLSearchParams();
+          params.append("mode", "nearby");
+          params.append("mapX", longitude);
+          params.append("mapY", latitude);
+          params.append("radius", "10000");
+          params.append("pageNo", "1");
+          params.append("numOfRows", "80");
+
+          const res = await fetch(`/api/places?${params.toString()}`);
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.error || "가까운 장소를 불러오지 못했습니다.");
+          }
+
+          setPlaces(data.items || []);
+          setKeyword("");
+          setSelectedArea("");
+          setSelectedType("전체");
+        } catch (err) {
+          setError(err.message);
+          setPlaces([]);
+        } finally {
+          setLoading(false);
+        }
+      },
+      () => {
+        alert(
+          "위치 권한이 허용되지 않았습니다. 브라우저에서 위치 권한을 허용해주세요."
+        );
+      }
+    );
   }
 
   useEffect(() => {
@@ -85,60 +130,6 @@ export default function Home() {
     loadPlaces(keyword, areaCode);
   }
 
-  function findNearbyPlaces() {
-    if (!navigator.geolocation) {
-      alert("이 브라우저에서는 위치 기능을 사용할 수 없습니다.");
-      return;
-    }
-
-    setLocationLoading(true);
-    setLoading(true);
-    setError("");
-    setSelectedType("전체");
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const latitude = position.coords.latitude;
-          const longitude = position.coords.longitude;
-
-          const params = new URLSearchParams();
-          params.set("pageNo", "1");
-          params.set("numOfRows", "100");
-          params.set("mapX", String(longitude));
-          params.set("mapY", String(latitude));
-          params.set("radius", "20000");
-
-          const res = await fetch(`/api/places?${params.toString()}`);
-          const data = await res.json();
-
-          if (!res.ok) {
-            throw new Error(data.error || "위치 기반 데이터를 불러오지 못했습니다.");
-          }
-
-          setPlaces(data.items || []);
-          setModeText("내 위치 기준 가까운 곳");
-        } catch (err) {
-          setError(err.message);
-          setPlaces([]);
-        } finally {
-          setLoading(false);
-          setLocationLoading(false);
-        }
-      },
-      () => {
-        setError("현재 위치 사용이 허용되지 않았습니다.");
-        setLoading(false);
-        setLocationLoading(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
-  }
-
   const typeList = useMemo(() => {
     const list = places
       .map((place) => getContentTypeName(place.contenttypeid))
@@ -150,9 +141,7 @@ export default function Home() {
   const filteredPlaces = useMemo(() => {
     return places.filter((place) => {
       const typeName = getContentTypeName(place.contenttypeid);
-      const matchType = selectedType === "전체" || typeName === selectedType;
-
-      return matchType;
+      return selectedType === "전체" || typeName === selectedType;
     });
   }, [places, selectedType]);
 
@@ -190,12 +179,12 @@ export default function Home() {
           <h1>댕댕이랑 어디가?</h1>
 
           <p className="heroText">
-            우리 강아지와 함께 갈 수 있는 따뜻한 장소를 찾아보세요.
+            우리 강아지와 함께 갈 수 있는 전국의 따뜻한 장소를 찾아보세요.
           </p>
         </div>
       </section>
 
-      <form className="searchBox" onSubmit={handleSearch}>
+      <form className="searchBox searchBoxWide" onSubmit={handleSearch}>
         <input
           type="text"
           placeholder="지역명이나 장소명을 검색해보세요. 예: 서울, 부산, 제주, 강릉, 카페, 공원"
@@ -204,9 +193,9 @@ export default function Home() {
         />
 
         <select value={selectedArea} onChange={handleAreaChange}>
-          {AREA_OPTIONS.map((area) => (
-            <option key={area.label} value={area.value}>
-              {area.label}
+          {AREA_LIST.map((area) => (
+            <option key={area.name} value={area.code}>
+              {area.name}
             </option>
           ))}
         </select>
@@ -227,31 +216,29 @@ export default function Home() {
         </button>
       </form>
 
-      <section className="actionArea">
-        <button
-          type="button"
-          className="locationButton"
-          onClick={findNearbyPlaces}
-          disabled={locationLoading}
-        >
-          {locationLoading ? "위치 확인 중..." : "내 위치에서 가까운 곳 찾기"}
-        </button>
-
-        <button
-          type="button"
-          className="recommendButton"
-          onClick={recommendRandomPlace}
-        >
-          오늘 같이 갈 곳 추천받기
-        </button>
-      </section>
-
       <section className="resultInfo">
         <p>
-          <span className="modeText">{modeText}</span> 기준으로 총{" "}
-          <strong>{filteredPlaces.length}</strong>개의 반려동물 동반 장소가
+          총 <strong>{filteredPlaces.length}</strong>개의 반려동물 동반 장소가
           검색되었습니다.
         </p>
+
+        <div className="resultButtons">
+          <button
+            type="button"
+            className="nearbyButton"
+            onClick={findNearbyPlaces}
+          >
+            내 위치에서 가까운 곳
+          </button>
+
+          <button
+            type="button"
+            className="recommendButton"
+            onClick={recommendRandomPlace}
+          >
+            오늘 같이 갈 곳 추천받기
+          </button>
+        </div>
       </section>
 
       {loading && (
@@ -316,9 +303,15 @@ function PlaceCard({ place, onSelect }) {
           </p>
         )}
 
+        {place.dist && (
+          <p className="info">
+            <strong>거리</strong> 약 {Number(place.dist).toLocaleString()}m
+          </p>
+        )}
+
         <p className="description">
-          반려동물과 함께 방문할 수 있는 장소입니다. 방문 전 운영시간과
-          동반 조건을 확인해보세요.
+          반려동물과 함께 방문할 수 있는 장소입니다. 방문 전 운영시간과 동반
+          조건을 확인해보세요.
         </p>
 
         <div className="buttons">
@@ -379,6 +372,13 @@ function PlaceModal({ place, onClose }) {
               </p>
             )}
 
+            {place.dist && (
+              <p>
+                <strong>거리</strong>
+                <span>약 {Number(place.dist).toLocaleString()}m</span>
+              </p>
+            )}
+
             {place.contentid && (
               <p>
                 <strong>콘텐츠 ID</strong>
@@ -389,8 +389,8 @@ function PlaceModal({ place, onClose }) {
             <p>
               <strong>안내</strong>
               <span>
-                반려동물 동반 가능 여부와 세부 조건은 현장 상황에 따라
-                달라질 수 있으므로 방문 전 확인이 필요합니다.
+                반려동물 동반 가능 여부와 세부 조건은 현장 상황에 따라 달라질 수
+                있으므로 방문 전 확인이 필요합니다.
               </span>
             </p>
           </div>
@@ -398,9 +398,9 @@ function PlaceModal({ place, onClose }) {
           <div className="contentsBox">
             <h3>이용 전 확인할 점</h3>
             <p>
-              목줄 착용, 이동장 사용, 실내 동반 가능 여부, 반려동물 크기
-              제한 등은 장소마다 다를 수 있습니다. 방문 전 전화 또는 공식
-              홈페이지를 통해 최신 정보를 확인해 주세요.
+              목줄 착용, 이동장 사용, 실내 동반 가능 여부, 반려동물 크기 제한
+              등은 장소마다 다를 수 있습니다. 방문 전 전화 또는 공식 홈페이지를
+              통해 최신 정보를 확인해 주세요.
             </p>
           </div>
 
@@ -460,19 +460,4 @@ function getMapUrl(place) {
   }
 
   return "";
-}
-
-function getModeText(keyword, areaCode) {
-  const area = AREA_OPTIONS.find((item) => item.value === areaCode);
-  const areaLabel = area?.label || "전국";
-
-  if (keyword?.trim() && areaLabel !== "전국") {
-    return `${areaLabel} · ${keyword.trim()}`;
-  }
-
-  if (keyword?.trim()) {
-    return `전국 · ${keyword.trim()}`;
-  }
-
-  return areaLabel;
 }
