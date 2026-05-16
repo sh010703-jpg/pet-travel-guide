@@ -77,10 +77,6 @@ function makeCommonUrl(baseUrl, serviceKey, pageNo, numOfRows) {
   return url;
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 async function fetchTourApi(url) {
   const response = await fetch(url.toString(), {
     cache: "no-store",
@@ -93,7 +89,7 @@ async function fetchTourApi(url) {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error("공공데이터 API 응답을 JSON으로 읽을 수 없습니다.");
+    throw new Error("공공데이터 API 응답이 JSON 형식이 아닙니다. 인증키 또는 요청 주소를 확인해주세요.");
   }
 
   const resultCode = data?.response?.header?.resultCode;
@@ -122,7 +118,7 @@ async function fetchTourApi(url) {
   };
 }
 
-async function fetchAllPages(createUrl, maxPages = 10) {
+async function fetchAllPages(createUrl, maxPages = 8) {
   const firstResult = await fetchTourApi(createUrl(1));
 
   let allItems = [...firstResult.items];
@@ -133,8 +129,6 @@ async function fetchAllPages(createUrl, maxPages = 10) {
   const pagesToFetch = Math.min(totalPages, maxPages);
 
   for (let page = 2; page <= pagesToFetch; page++) {
-    await sleep(80);
-
     const result = await fetchTourApi(createUrl(page));
     allItems = [...allItems, ...result.items];
   }
@@ -253,7 +247,7 @@ async function fetchByContentType({
     return url;
   };
 
-  const result = await fetchAllPages(createUrl, 15);
+  const result = await fetchAllPages(createUrl, 10);
 
   let items = removeDuplicates(result.items);
 
@@ -275,6 +269,9 @@ async function fetchFoodCafe({
 }) {
   let allItems = [];
 
+  /*
+    1. 공식 음식점/카페 분류 39
+  */
   const foodResult = await fetchByContentType({
     serviceKey,
     areaCode,
@@ -285,6 +282,10 @@ async function fetchFoodCafe({
 
   allItems = [...allItems, ...foodResult.items];
 
+  /*
+    2. 카페 관련 키워드 검색
+    단, 약국/쇼핑/백화점 등은 마지막에 제외
+  */
   const keywordList = [
     "카페",
     "커피",
@@ -297,8 +298,6 @@ async function fetchFoodCafe({
   ];
 
   for (const word of keywordList) {
-    await sleep(80);
-
     const createKeywordUrl = (pageNo) => {
       const url = makeCommonUrl(
         "https://apis.data.go.kr/B551011/KorPetTourService2/searchKeyword2",
@@ -320,7 +319,9 @@ async function fetchFoodCafe({
       const keywordResult = await fetchAllPages(createKeywordUrl, 3);
       allItems = [...allItems, ...keywordResult.items];
     } catch {
-      // 특정 키워드 검색이 실패해도 전체 서비스가 멈추지 않게 함
+      /*
+        특정 키워드에서 오류가 나도 전체가 멈추지 않게 처리
+      */
     }
   }
 
@@ -335,6 +336,9 @@ async function fetchFoodCafe({
 }
 
 async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
+  /*
+    지역 선택이 있을 때: 해당 지역 전체
+  */
   if (areaCode) {
     const createUrl = (pageNo) => {
       const url = makeCommonUrl(
@@ -349,7 +353,7 @@ async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
       return url;
     };
 
-    const result = await fetchAllPages(createUrl, 20);
+    const result = await fetchAllPages(createUrl, 10);
     const items = removeDuplicates(result.items);
 
     return {
@@ -359,38 +363,58 @@ async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
     };
   }
 
-  let allItems = [];
+  /*
+    전국 전체:
+    한꺼번에 17개 지역을 다 돌리지 않고,
+    API 기본 전국 조회를 먼저 사용합니다.
+    이게 가장 안정적입니다.
+  */
+  const createNationalUrl = (pageNo) => {
+    const url = makeCommonUrl(
+      "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
+      serviceKey,
+      pageNo,
+      numOfRows
+    );
+
+    return url;
+  };
+
+  const result = await fetchAllPages(createNationalUrl, 10);
+  let items = removeDuplicates(result.items);
 
   /*
-    전국 전체 조회는 Promise.all로 한꺼번에 호출하지 않고
-    지역을 하나씩 순서대로 조회합니다.
-    그래야 공공데이터 API 오류가 줄어듭니다.
+    혹시 전국 기본 조회가 비어 있으면 지역별 일부 조회로 보완
   */
-  for (const code of AREA_CODES) {
-    await sleep(120);
+  if (items.length === 0) {
+    let allItems = [];
 
-    const createUrl = (pageNo) => {
-      const url = makeCommonUrl(
-        "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
-        serviceKey,
-        pageNo,
-        numOfRows
-      );
+    for (const code of AREA_CODES) {
+      const createAreaUrl = (pageNo) => {
+        const url = makeCommonUrl(
+          "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
+          serviceKey,
+          pageNo,
+          numOfRows
+        );
 
-      url.searchParams.append("areaCode", code);
+        url.searchParams.append("areaCode", code);
 
-      return url;
-    };
+        return url;
+      };
 
-    try {
-      const result = await fetchAllPages(createUrl, 20);
-      allItems = [...allItems, ...result.items];
-    } catch {
-      // 한 지역에서 오류가 나도 다른 지역 조회는 계속 진행
+      try {
+        const areaResult = await fetchAllPages(createAreaUrl, 2);
+        allItems = [...allItems, ...areaResult.items];
+      } catch {
+        /*
+          특정 지역 실패는 건너뜀
+        */
+      }
     }
-  }
 
-  const items = removeDuplicates(allItems);
+    items = removeDuplicates(allItems);
+  }
 
   return {
     items,
@@ -427,7 +451,7 @@ async function fetchNearby({
     return url;
   };
 
-  const result = await fetchAllPages(createUrl, 10);
+  const result = await fetchAllPages(createUrl, 5);
 
   let items = removeDuplicates(result.items);
 
@@ -465,6 +489,9 @@ export async function GET(request) {
   }
 
   try {
+    /*
+      1. 내 위치에서 가까운 곳
+    */
     if (mode === "nearby") {
       if (!mapX || !mapY) {
         return NextResponse.json(
@@ -485,6 +512,9 @@ export async function GET(request) {
       return NextResponse.json(result);
     }
 
+    /*
+      2. 음식점/카페
+    */
     if (contentTypeId === "39") {
       const result = await fetchFoodCafe({
         serviceKey,
@@ -496,6 +526,9 @@ export async function GET(request) {
       return NextResponse.json(result);
     }
 
+    /*
+      3. 일반 카테고리
+    */
     if (contentTypeId && VALID_CONTENT_TYPES[contentTypeId]) {
       const result = await fetchByContentType({
         serviceKey,
@@ -508,6 +541,9 @@ export async function GET(request) {
       return NextResponse.json(result);
     }
 
+    /*
+      4. 검색어만 있는 경우
+    */
     if (keyword) {
       const createUrl = (pageNo) => {
         const url = makeCommonUrl(
@@ -526,7 +562,7 @@ export async function GET(request) {
         return url;
       };
 
-      const result = await fetchAllPages(createUrl, 10);
+      const result = await fetchAllPages(createUrl, 8);
       const items = removeDuplicates(result.items);
 
       return NextResponse.json({
@@ -536,6 +572,9 @@ export async function GET(request) {
       });
     }
 
+    /*
+      5. 전체
+    */
     const result = await fetchAreaOnly({
       serviceKey,
       areaCode,
