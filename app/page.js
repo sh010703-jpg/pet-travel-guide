@@ -86,13 +86,11 @@ export default function Home() {
     <main>
       <section className="hero">
         <div className="heroDog">
-          <div className="dogBadgeWrap">
-            <img
-              src="/dog-badge.png"
-              alt="동그라미 안에 들어간 귀여운 강아지"
-              className="dogBadgeImage"
-            />
-          </div>
+          <img
+            src="/dog-badge.png"
+            alt="동그라미 안에 들어간 귀여운 강아지"
+            className="dogBadgeImage"
+          />
         </div>
 
         <div className="heroTextArea">
@@ -208,8 +206,8 @@ function PlaceCard({ place, onSelect }) {
         )}
 
         <p className="description">
-          반려동물과 함께 방문할 수 있는 장소입니다. 방문 전 운영시간과 동반
-          조건을 확인해보세요.
+          반려동물과 함께 방문할 수 있는 장소입니다. 방문 전 운영시간과
+          동반 조건을 확인해보세요.
         </p>
 
         <div className="buttons">
@@ -280,8 +278,8 @@ function PlaceModal({ place, onClose }) {
             <p>
               <strong>안내</strong>
               <span>
-                반려동물 동반 가능 여부와 세부 조건은 현장 상황에 따라 달라질 수
-                있으므로 방문 전 확인이 필요합니다.
+                반려동물 동반 가능 여부와 세부 조건은 현장 상황에 따라
+                달라질 수 있으므로 방문 전 확인이 필요합니다.
               </span>
             </p>
           </div>
@@ -289,9 +287,9 @@ function PlaceModal({ place, onClose }) {
           <div className="contentsBox">
             <h3>이용 전 확인할 점</h3>
             <p>
-              목줄 착용, 이동장 사용, 실내 동반 가능 여부, 반려동물 크기 제한
-              등은 장소마다 다를 수 있습니다. 방문 전 전화 또는 공식 홈페이지를
-              통해 최신 정보를 확인해 주세요.
+              목줄 착용, 이동장 사용, 실내 동반 가능 여부, 반려동물 크기
+              제한 등은 장소마다 다를 수 있습니다. 방문 전 전화 또는 공식
+              홈페이지를 통해 최신 정보를 확인해 주세요.
             </p>
           </div>
 
