@@ -193,6 +193,11 @@ h1 {
   border: 1px solid #f7cbd3;
 }
 
+/* 지역 선택 추가된 검색창 */
+.searchBoxWide {
+  grid-template-columns: 1fr 150px 150px 100px;
+}
+
 .searchBox input,
 .searchBox select {
   width: 100%;
@@ -255,16 +260,36 @@ h1 {
   font-size: 22px;
 }
 
+.resultButtons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nearbyButton,
 .recommendButton {
   border: none;
   cursor: pointer;
   padding: 15px 22px;
   border-radius: 999px;
-  background: #5c4a50;
   color: white;
   font-size: 15px;
   font-weight: 900;
-  box-shadow: 0 14px 30px rgba(92, 74, 80, 0.22);
+  box-shadow: 0 14px 30px rgba(92, 74, 80, 0.18);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.nearbyButton {
+  background: linear-gradient(135deg, #f6a7b5 0%, #e98498 100%);
+}
+
+.nearbyButton::before {
+  content: "📍 ";
+}
+
+.recommendButton {
+  background: #5c4a50;
   animation: buttonBounce 2.2s ease-in-out infinite;
 }
 
@@ -272,8 +297,10 @@ h1 {
   content: "💗 ";
 }
 
+.nearbyButton:hover,
 .recommendButton:hover {
   transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgba(92, 74, 80, 0.24);
 }
 
 .status,
@@ -688,7 +715,8 @@ h2 {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .searchBox {
+  .searchBox,
+  .searchBoxWide {
     grid-template-columns: 1fr 150px;
   }
 
@@ -727,13 +755,27 @@ h2 {
     opacity: 0.5;
   }
 
-  .searchBox {
+  .searchBox,
+  .searchBoxWide {
     grid-template-columns: 1fr;
     padding: 14px;
   }
 
   .searchButton {
     padding: 15px;
+  }
+
+  .resultInfo {
+    align-items: flex-start;
+  }
+
+  .resultButtons {
+    width: 100%;
+  }
+
+  .nearbyButton,
+  .recommendButton {
+    width: 100%;
   }
 
   .grid {
