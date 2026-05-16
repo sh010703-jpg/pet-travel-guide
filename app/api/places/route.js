@@ -1,5 +1,25 @@
 import { NextResponse } from "next/server";
 
+const AREA_CODES = [
+  "1",  // 서울
+  "2",  // 인천
+  "3",  // 대전
+  "4",  // 대구
+  "5",  // 광주
+  "6",  // 부산
+  "7",  // 울산
+  "8",  // 세종
+  "31", // 경기
+  "32", // 강원
+  "33", // 충북
+  "34", // 충남
+  "35", // 경북
+  "36", // 경남
+  "37", // 전북
+  "38", // 전남
+  "39", // 제주
+];
+
 const VALID_CONTENT_TYPES = {
   "12": "관광지",
   "14": "문화시설",
@@ -10,74 +30,32 @@ const VALID_CONTENT_TYPES = {
   "39": "음식점/카페",
 };
 
-function getServiceKeyForUrl() {
-  const rawKey = process.env.TOUR_API_KEY;
+function makeCommonUrl(baseUrl, serviceKey, pageNo, numOfRows) {
+  const url = new URL(baseUrl);
 
-  if (!rawKey) {
-    return "";
-  }
+  url.searchParams.append("serviceKey", serviceKey);
+  url.searchParams.append("MobileOS", "ETC");
+  url.searchParams.append("MobileApp", "pet-travel-guide");
+  url.searchParams.append("_type", "json");
+  url.searchParams.append("pageNo", String(pageNo));
+  url.searchParams.append("numOfRows", String(numOfRows));
+  url.searchParams.append("arrange", "Q");
 
-  const trimmedKey = rawKey.trim();
-
-  /*
-    공공데이터포털의 Encoding 인증키는 이미 %2F, %2B 같은 문자가 들어있습니다.
-    이 경우 encodeURIComponent를 다시 하면 인증키가 망가집니다.
-  */
-  if (trimmedKey.includes("%")) {
-    return trimmedKey;
-  }
-
-  /*
-    Decoding 인증키를 넣은 경우에는 URL에 들어갈 수 있도록 인코딩합니다.
-  */
-  return encodeURIComponent(trimmedKey);
-}
-
-function makeUrl(baseUrl, serviceKey, pageNo, numOfRows, extraParams = {}) {
-  const params = [
-    `serviceKey=${serviceKey}`,
-    `MobileOS=ETC`,
-    `MobileApp=pet-travel-guide`,
-    `_type=json`,
-    `pageNo=${pageNo}`,
-    `numOfRows=${numOfRows}`,
-    `arrange=Q`,
-  ];
-
-  Object.entries(extraParams).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      params.push(`${key}=${encodeURIComponent(value)}`);
-    }
-  });
-
-  return `${baseUrl}?${params.join("&")}`;
+  return url;
 }
 
 async function fetchTourApi(url) {
-  const response = await fetch(url, {
+  const response = await fetch(url.toString(), {
     cache: "no-store",
   });
 
-  const text = await response.text();
-
-  let data;
-
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(
-      `공공데이터 응답이 JSON이 아닙니다. 인증키 문제일 가능성이 큽니다. 응답 일부: ${text.slice(
-        0,
-        180
-      )}`
-    );
-  }
+  const data = await response.json();
 
   const resultCode = data?.response?.header?.resultCode;
   const resultMsg = data?.response?.header?.resultMsg;
 
   if (resultCode && resultCode !== "0000") {
-    throw new Error(resultMsg || `공공데이터 API 오류 코드: ${resultCode}`);
+    throw new Error(resultMsg || "공공데이터 API 요청에 실패했습니다.");
   }
 
   const body = data?.response?.body;
@@ -99,7 +77,7 @@ async function fetchTourApi(url) {
   };
 }
 
-async function fetchAllPages(createUrl, maxPages = 8) {
+async function fetchAllPages(createUrl, maxPages = 50) {
   const firstResult = await fetchTourApi(createUrl(1));
 
   let allItems = [...firstResult.items];
@@ -122,8 +100,8 @@ async function fetchAllPages(createUrl, maxPages = 8) {
 }
 
 function removeDuplicates(items) {
-  const seen = new Set();
   const uniqueItems = [];
+  const seen = new Set();
 
   for (const item of items) {
     const key = item.contentid || `${item.title}-${item.addr1}`;
@@ -147,7 +125,7 @@ function filterExactContentType(items, contentTypeId) {
   );
 }
 
-function filterByKeyword(items, keyword) {
+function filterByKeywordInResult(items, keyword) {
   if (!keyword) {
     return items;
   }
@@ -166,33 +144,39 @@ function filterByKeyword(items, keyword) {
   });
 }
 
-async function fetchAreaBasedList({
+async function fetchByContentType({
   serviceKey,
   areaCode,
   contentTypeId,
   keyword,
+  numOfRows,
 }) {
-  const createUrl = (pageNo) =>
-    makeUrl(
+  const createUrl = (pageNo) => {
+    const url = makeCommonUrl(
       "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
       serviceKey,
       pageNo,
-      100,
-      {
-        areaCode,
-        contentTypeId,
-      }
+      numOfRows
     );
 
-  const result = await fetchAllPages(createUrl, 8);
+    if (areaCode) {
+      url.searchParams.append("areaCode", areaCode);
+    }
+
+    url.searchParams.append("contentTypeId", contentTypeId);
+
+    return url;
+  };
+
+  const result = await fetchAllPages(createUrl, 50);
 
   let items = removeDuplicates(result.items);
 
-  if (contentTypeId) {
-    items = filterExactContentType(items, contentTypeId);
-  }
+  // 선택한 카테고리와 정확히 일치하는 것만 남김
+  items = filterExactContentType(items, contentTypeId);
 
-  items = filterByKeyword(items, keyword);
+  // 검색어가 있으면 해당 카테고리 안에서만 검색
+  items = filterByKeywordInResult(items, keyword);
 
   return {
     items,
@@ -201,32 +185,65 @@ async function fetchAreaBasedList({
   };
 }
 
-async function fetchKeywordList({
-  serviceKey,
-  areaCode,
-  contentTypeId,
-  keyword,
-}) {
-  const createUrl = (pageNo) =>
-    makeUrl(
-      "https://apis.data.go.kr/B551011/KorPetTourService2/searchKeyword2",
-      serviceKey,
-      pageNo,
-      100,
-      {
-        keyword,
-        areaCode,
-        contentTypeId,
-      }
-    );
+async function fetchAreaOnly({ serviceKey, areaCode, numOfRows }) {
+  /*
+    지역을 선택한 경우:
+    예) 부산 전체
+    부산에 등록된 반려동물 동반 장소 전체를 여러 페이지 가져옴
+  */
+  if (areaCode) {
+    const createUrl = (pageNo) => {
+      const url = makeCommonUrl(
+        "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
+        serviceKey,
+        pageNo,
+        numOfRows
+      );
 
-  const result = await fetchAllPages(createUrl, 8);
+      url.searchParams.append("areaCode", areaCode);
 
-  let items = removeDuplicates(result.items);
+      return url;
+    };
 
-  if (contentTypeId) {
-    items = filterExactContentType(items, contentTypeId);
+    const result = await fetchAllPages(createUrl, 50);
+    const items = removeDuplicates(result.items);
+
+    return {
+      items,
+      totalCount: items.length,
+      loadedCount: items.length,
+    };
   }
+
+  /*
+    전국 전체:
+    서울, 부산, 제주 등 모든 지역을 돌면서 각 지역의 전체 페이지를 가져옴
+    이전보다 개수가 적게 나오는 문제를 막기 위해 지역별 maxPages를 늘림
+  */
+  let allItems = [];
+
+  const requests = AREA_CODES.map(async (code) => {
+    const createUrl = (pageNo) => {
+      const url = makeCommonUrl(
+        "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
+        serviceKey,
+        pageNo,
+        numOfRows
+      );
+
+      url.searchParams.append("areaCode", code);
+
+      return url;
+    };
+
+    const result = await fetchAllPages(createUrl, 50);
+    return result.items;
+  });
+
+  const results = await Promise.all(requests);
+  allItems = results.flat();
+
+  const items = removeDuplicates(allItems);
 
   return {
     items,
@@ -241,23 +258,29 @@ async function fetchNearby({
   mapY,
   radius,
   contentTypeId,
+  numOfRows,
 }) {
-  const createUrl = (pageNo) =>
-    makeUrl(
+  const createUrl = (pageNo) => {
+    const url = makeCommonUrl(
       "https://apis.data.go.kr/B551011/KorPetTourService2/locationBasedList2",
       serviceKey,
       pageNo,
-      100,
-      {
-        arrange: "E",
-        mapX,
-        mapY,
-        radius,
-        contentTypeId,
-      }
+      numOfRows
     );
 
-  const result = await fetchAllPages(createUrl, 5);
+    url.searchParams.set("arrange", "E");
+    url.searchParams.append("mapX", mapX);
+    url.searchParams.append("mapY", mapY);
+    url.searchParams.append("radius", radius);
+
+    if (contentTypeId) {
+      url.searchParams.append("contentTypeId", contentTypeId);
+    }
+
+    return url;
+  };
+
+  const result = await fetchAllPages(createUrl, 20);
 
   let items = removeDuplicates(result.items);
 
@@ -284,19 +307,20 @@ export async function GET(request) {
   const mapY = searchParams.get("mapY") || "";
   const radius = searchParams.get("radius") || "10000";
 
-  const serviceKey = getServiceKeyForUrl();
+  const serviceKey = process.env.TOUR_API_KEY;
+  const numOfRows = 100;
 
   if (!serviceKey) {
     return NextResponse.json(
-      {
-        error: "TOUR_API_KEY가 설정되어 있지 않습니다.",
-        detail: "Vercel Environment Variables에 TOUR_API_KEY를 추가해야 합니다.",
-      },
+      { error: "TOUR_API_KEY가 설정되어 있지 않습니다." },
       { status: 500 }
     );
   }
 
   try {
+    /*
+      1. 내 위치에서 가까운 곳
+    */
     if (mode === "nearby") {
       if (!mapX || !mapY) {
         return NextResponse.json(
@@ -311,27 +335,74 @@ export async function GET(request) {
         mapY,
         radius,
         contentTypeId,
+        numOfRows,
       });
 
       return NextResponse.json(result);
     }
 
-    if (keyword.trim()) {
-      const result = await fetchKeywordList({
+    /*
+      2. 카테고리 선택
+      음식점/카페는 39만,
+      쇼핑은 38만,
+      숙박은 32만,
+      관광지는 12만 가져옴.
+      다른 카테고리가 섞이지 않음.
+    */
+    if (contentTypeId && VALID_CONTENT_TYPES[contentTypeId]) {
+      const result = await fetchByContentType({
         serviceKey,
         areaCode,
         contentTypeId,
-        keyword: keyword.trim(),
+        keyword,
+        numOfRows,
       });
 
       return NextResponse.json(result);
     }
 
-    const result = await fetchAreaBasedList({
+    /*
+      3. 검색어만 있는 경우
+      카테고리가 없으므로 전체 키워드 검색.
+      이 경우에는 여러 유형이 섞일 수 있음.
+    */
+    if (keyword) {
+      const createUrl = (pageNo) => {
+        const url = makeCommonUrl(
+          "https://apis.data.go.kr/B551011/KorPetTourService2/searchKeyword2",
+          serviceKey,
+          pageNo,
+          numOfRows
+        );
+
+        url.searchParams.append("keyword", keyword);
+
+        if (areaCode) {
+          url.searchParams.append("areaCode", areaCode);
+        }
+
+        return url;
+      };
+
+      const result = await fetchAllPages(createUrl, 30);
+      const items = removeDuplicates(result.items);
+
+      return NextResponse.json({
+        items,
+        totalCount: items.length,
+        loadedCount: items.length,
+      });
+    }
+
+    /*
+      4. 지역만 선택 또는 전국 전체
+      이 경우에는 전체 장소를 보여주는 것이므로 여러 유형이 섞이는 것이 정상.
+      대신 누락이 적도록 여러 페이지를 가져옴.
+    */
+    const result = await fetchAreaOnly({
       serviceKey,
       areaCode,
-      contentTypeId,
-      keyword: "",
+      numOfRows,
     });
 
     return NextResponse.json(result);
