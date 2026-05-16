@@ -10,6 +10,25 @@ const VALID_CONTENT_TYPES = {
   "39": "음식점/카페",
 };
 
+function getServiceKey() {
+  const rawKey = process.env.TOUR_API_KEY;
+
+  if (!rawKey) {
+    return "";
+  }
+
+  try {
+    /*
+      공공데이터포털 인증키가 Encoding 키로 들어가 있으면
+      URLSearchParams에서 한 번 더 인코딩되어 오류가 날 수 있어
+      먼저 디코딩해서 사용합니다.
+    */
+    return decodeURIComponent(rawKey.trim());
+  } catch {
+    return rawKey.trim();
+  }
+}
+
 function makeUrl(baseUrl, serviceKey, pageNo, numOfRows) {
   const url = new URL(baseUrl);
 
@@ -37,7 +56,7 @@ async function fetchTourApi(url) {
     data = JSON.parse(text);
   } catch {
     throw new Error(
-      "공공데이터 API 응답을 읽을 수 없습니다. 인증키나 요청 주소를 확인해주세요."
+      `공공데이터 응답이 JSON이 아닙니다. 응답 일부: ${text.slice(0, 200)}`
     );
   }
 
@@ -45,7 +64,7 @@ async function fetchTourApi(url) {
   const resultMsg = data?.response?.header?.resultMsg;
 
   if (resultCode && resultCode !== "0000") {
-    throw new Error(resultMsg || "공공데이터 API 요청에 실패했습니다.");
+    throw new Error(resultMsg || `공공데이터 API 오류 코드: ${resultCode}`);
   }
 
   const body = data?.response?.body;
@@ -272,7 +291,7 @@ export async function GET(request) {
   const mapY = searchParams.get("mapY") || "";
   const radius = searchParams.get("radius") || "10000";
 
-  const serviceKey = process.env.TOUR_API_KEY;
+  const serviceKey = getServiceKey();
 
   if (!serviceKey) {
     return NextResponse.json(
