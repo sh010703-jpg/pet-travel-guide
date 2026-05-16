@@ -1,359 +1,155 @@
-"use client";
+import { NextResponse } from "next/server";
 
-import { useEffect, useMemo, useState } from "react";
-import "./globals.css";
+const AREA_CODES = [
+  "1",  // 서울
+  "2",  // 인천
+  "3",  // 대전
+  "4",  // 대구
+  "5",  // 광주
+  "6",  // 부산
+  "7",  // 울산
+  "8",  // 세종
+  "31", // 경기
+  "32", // 강원
+  "33", // 충북
+  "34", // 충남
+  "35", // 경북
+  "36", // 경남
+  "37", // 전북
+  "38", // 전남
+  "39", // 제주
+];
 
-export default function Home() {
-  const [places, setPlaces] = useState([]);
-  const [keyword, setKeyword] = useState("");
-  const [selectedType, setSelectedType] = useState("전체");
-  const [selectedPlace, setSelectedPlace] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
 
-  async function loadPlaces(searchKeyword = "") {
-    try {
-      setLoading(true);
-      setError("");
+  const pageNo = searchParams.get("pageNo") || "1";
+  const numOfRows = searchParams.get("numOfRows") || "80";
+  const keyword = searchParams.get("keyword") || "";
 
-      const query = searchKeyword
-        ? `/api/places?pageNo=1&numOfRows=80&keyword=${encodeURIComponent(
-            searchKeyword
-          )}`
-        : "/api/places?pageNo=1&numOfRows=80";
+  const serviceKey = process.env.TOUR_API_KEY;
 
-      const res = await fetch(query);
-      const data = await res.json();
+  if (!serviceKey) {
+    return NextResponse.json(
+      { error: "TOUR_API_KEY가 설정되어 있지 않습니다." },
+      { status: 500 }
+    );
+  }
 
-      if (!res.ok) {
-        throw new Error(data.error || "데이터를 불러오지 못했습니다.");
+  try {
+    let allItems = [];
+
+    /*
+      1. 검색어가 있을 때
+      - searchKeyword2 사용
+      - areaCode를 넣지 않으면 전국 키워드 검색
+      - 예: 부산, 제주, 강릉, 해운대, 카페 등
+    */
+    if (keyword) {
+      const url = new URL(
+        "https://apis.data.go.kr/B551011/KorPetTourService2/searchKeyword2"
+      );
+
+      url.searchParams.append("serviceKey", serviceKey);
+      url.searchParams.append("MobileOS", "ETC");
+      url.searchParams.append("MobileApp", "pet-travel-guide");
+      url.searchParams.append("_type", "json");
+      url.searchParams.append("pageNo", pageNo);
+      url.searchParams.append("numOfRows", numOfRows);
+      url.searchParams.append("arrange", "Q");
+      url.searchParams.append("keyword", keyword);
+
+      const response = await fetch(url.toString(), {
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+      const items = data?.response?.body?.items?.item;
+
+      if (Array.isArray(items)) {
+        allItems = items;
+      } else if (items) {
+        allItems = [items];
       }
 
-      setPlaces(data.items || []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      return NextResponse.json({
+        items: allItems,
+        totalCount: data?.response?.body?.totalCount || allItems.length,
+        pageNo: data?.response?.body?.pageNo || pageNo,
+        numOfRows: data?.response?.body?.numOfRows || numOfRows,
+      });
     }
-  }
 
-  useEffect(() => {
-    loadPlaces();
-  }, []);
+    /*
+      2. 검색어가 없을 때
+      - 전국 지역코드를 하나씩 돌면서 가져옴
+      - 서울만 몰리지 않도록 각 지역에서 조금씩 가져옴
+    */
+    const requests = AREA_CODES.map(async (areaCode) => {
+      const url = new URL(
+        "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2"
+      );
 
-  function handleSearch(e) {
-    e.preventDefault();
-    loadPlaces(keyword.trim());
-  }
+      url.searchParams.append("serviceKey", serviceKey);
+      url.searchParams.append("MobileOS", "ETC");
+      url.searchParams.append("MobileApp", "pet-travel-guide");
+      url.searchParams.append("_type", "json");
+      url.searchParams.append("pageNo", "1");
+      url.searchParams.append("numOfRows", "12");
+      url.searchParams.append("arrange", "Q");
+      url.searchParams.append("areaCode", areaCode);
 
-  const typeList = useMemo(() => {
-    const list = places
-      .map((place) => getContentTypeName(place.contenttypeid))
-      .filter(Boolean);
+      const response = await fetch(url.toString(), {
+        cache: "no-store",
+      });
 
-    return ["전체", ...new Set(list)];
-  }, [places]);
+      const data = await response.json();
+      const items = data?.response?.body?.items?.item;
 
-  const filteredPlaces = useMemo(() => {
-    return places.filter((place) => {
-      const typeName = getContentTypeName(place.contenttypeid);
-      const matchType = selectedType === "전체" || typeName === selectedType;
+      if (Array.isArray(items)) {
+        return items;
+      }
 
-      const text = `
-        ${place.title || ""}
-        ${place.addr1 || ""}
-        ${place.addr2 || ""}
-        ${place.tel || ""}
-      `.toLowerCase();
+      if (items) {
+        return [items];
+      }
 
-      const matchKeyword = text.includes(keyword.toLowerCase());
-
-      return matchType && matchKeyword;
+      return [];
     });
-  }, [places, keyword, selectedType]);
 
-  function recommendRandomPlace() {
-    if (filteredPlaces.length === 0) {
-      alert("추천할 장소가 없습니다. 검색어나 필터를 다시 확인해주세요.");
-      return;
+    const results = await Promise.all(requests);
+
+    allItems = results.flat();
+
+    /*
+      중복 제거
+      같은 장소가 여러 번 들어오는 것을 방지
+    */
+    const uniqueItems = [];
+    const seen = new Set();
+
+    for (const item of allItems) {
+      const key = item.contentid || `${item.title}-${item.addr1}`;
+
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueItems.push(item);
+      }
     }
 
-    const randomIndex = Math.floor(Math.random() * filteredPlaces.length);
-    setSelectedPlace(filteredPlaces[randomIndex]);
+    return NextResponse.json({
+      items: uniqueItems,
+      totalCount: uniqueItems.length,
+      pageNo,
+      numOfRows,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "공공데이터를 불러오는 중 오류가 발생했습니다.",
+        detail: error.message,
+      },
+      { status: 500 }
+    );
   }
-
-  return (
-    <main>
-      <section className="hero">
-        <div className="floatingHeart heartA">♡</div>
-        <div className="floatingHeart heartB">♡</div>
-        <div className="floatingHeart heartC">♡</div>
-        <div className="floatingHeart heartD">✦</div>
-        <div className="floatingHeart heartE">♡</div>
-        <div className="floatingHeart heartF">♡</div>
-
-        <div className="heroDog">
-          <img
-            src="/dog-badge.png"
-            alt="동그라미 안에 들어간 귀여운 강아지"
-            className="dogBadgeImage"
-          />
-        </div>
-
-        <div className="heroTextArea">
-          <p className="badge">🐾 한국관광공사 공공데이터 활용</p>
-
-          <h1>댕댕이랑 어디가?</h1>
-
-          <p className="heroText">
-            우리 강아지와 함께 갈 수 있는 따뜻한 장소를 찾아보세요.
-          </p>
-        </div>
-      </section>
-
-      <form className="searchBox" onSubmit={handleSearch}>
-        <input
-          type="text"
-          placeholder="장소명, 지역명, 키워드를 검색해보세요. 예: 해운대, 카페, 공원"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-        />
-
-        <select
-          value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value)}
-        >
-          {typeList.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
-
-        <button type="submit" className="searchButton">
-          검색
-        </button>
-      </form>
-
-      <section className="resultInfo">
-        <p>
-          총 <strong>{filteredPlaces.length}</strong>개의 반려동물 동반 장소가
-          검색되었습니다.
-        </p>
-
-        <button
-          type="button"
-          className="recommendButton"
-          onClick={recommendRandomPlace}
-        >
-          오늘 같이 갈 곳 추천받기
-        </button>
-      </section>
-
-      {loading && (
-        <p className="status">반려동물 동반 장소를 불러오는 중입니다...</p>
-      )}
-
-      {error && <p className="error">오류: {error}</p>}
-
-      {!loading && !error && (
-        <section className="grid">
-          {filteredPlaces.map((place) => (
-            <PlaceCard
-              key={place.contentid}
-              place={place}
-              onSelect={() => setSelectedPlace(place)}
-            />
-          ))}
-        </section>
-      )}
-
-      {selectedPlace && (
-        <PlaceModal
-          place={selectedPlace}
-          onClose={() => setSelectedPlace(null)}
-        />
-      )}
-    </main>
-  );
-}
-
-function PlaceCard({ place, onSelect }) {
-  const imageUrl = place.firstimage || place.firstimage2;
-  const mapUrl = getMapUrl(place);
-  const typeName = getContentTypeName(place.contenttypeid);
-
-  return (
-    <article className="card">
-      <div className="imageWrap">
-        {imageUrl ? (
-          <img src={imageUrl} alt={place.title || "반려동물 동반 장소 이미지"} />
-        ) : (
-          <div className="noImage">이미지 없음</div>
-        )}
-      </div>
-
-      <div className="cardBody">
-        <span className="category">
-          {getCategoryIcon(typeName)} {typeName}
-        </span>
-
-        <h2>{place.title || "이름 없는 장소"}</h2>
-
-        {place.addr1 && (
-          <p className="info">
-            <strong>주소</strong> {place.addr1}
-          </p>
-        )}
-
-        {place.tel && (
-          <p className="info">
-            <strong>연락처</strong> {place.tel}
-          </p>
-        )}
-
-        <p className="description">
-          반려동물과 함께 방문할 수 있는 장소입니다. 방문 전 운영시간과
-          동반 조건을 확인해보세요.
-        </p>
-
-        <div className="buttons">
-          <button type="button" onClick={onSelect}>
-            상세보기
-          </button>
-
-          {mapUrl && (
-            <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-              지도 보기
-            </a>
-          )}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function PlaceModal({ place, onClose }) {
-  const imageUrl = place.firstimage || place.firstimage2;
-  const mapUrl = getMapUrl(place);
-  const typeName = getContentTypeName(place.contenttypeid);
-
-  return (
-    <div className="modalOverlay" onClick={onClose}>
-      <section className="modal" onClick={(e) => e.stopPropagation()}>
-        <button className="closeButton" type="button" onClick={onClose}>
-          닫기
-        </button>
-
-        {imageUrl && (
-          <div className="modalImage">
-            <img src={imageUrl} alt={place.title || "반려동물 동반 장소 이미지"} />
-          </div>
-        )}
-
-        <div className="modalBody">
-          <span className="category">
-            {getCategoryIcon(typeName)} {typeName}
-          </span>
-
-          <h2>{place.title || "반려동물 동반 장소"}</h2>
-
-          <div className="detailList">
-            {place.addr1 && (
-              <p>
-                <strong>주소</strong>
-                <span>
-                  {place.addr1} {place.addr2 || ""}
-                </span>
-              </p>
-            )}
-
-            {place.tel && (
-              <p>
-                <strong>연락처</strong>
-                <span>{place.tel}</span>
-              </p>
-            )}
-
-            {place.contentid && (
-              <p>
-                <strong>콘텐츠 ID</strong>
-                <span>{place.contentid}</span>
-              </p>
-            )}
-
-            <p>
-              <strong>안내</strong>
-              <span>
-                반려동물 동반 가능 여부와 세부 조건은 현장 상황에 따라
-                달라질 수 있으므로 방문 전 확인이 필요합니다.
-              </span>
-            </p>
-          </div>
-
-          <div className="contentsBox">
-            <h3>이용 전 확인할 점</h3>
-            <p>
-              목줄 착용, 이동장 사용, 실내 동반 가능 여부, 반려동물 크기
-              제한 등은 장소마다 다를 수 있습니다. 방문 전 전화 또는 공식
-              홈페이지를 통해 최신 정보를 확인해 주세요.
-            </p>
-          </div>
-
-          <div className="buttons modalButtons">
-            {mapUrl && (
-              <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-                지도에서 보기
-              </a>
-            )}
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function getContentTypeName(contenttypeid) {
-  const types = {
-    "12": "관광지",
-    "14": "문화시설",
-    "15": "축제/공연",
-    "28": "레포츠",
-    "32": "숙박",
-    "38": "쇼핑",
-    "39": "음식점",
-  };
-
-  return types[String(contenttypeid)] || "기타";
-}
-
-function getCategoryIcon(typeName) {
-  const icons = {
-    관광지: "🌿",
-    문화시설: "🎨",
-    "축제/공연": "🎪",
-    레포츠: "🏃",
-    숙박: "🏡",
-    쇼핑: "🛍️",
-    음식점: "☕",
-    기타: "🐾",
-  };
-
-  return icons[typeName] || "🐾";
-}
-
-function getMapUrl(place) {
-  if (place.mapy && place.mapx) {
-    return `https://map.kakao.com/link/map/${encodeURIComponent(
-      place.title || "반려동물 동반 장소"
-    )},${place.mapy},${place.mapx}`;
-  }
-
-  if (place.addr1) {
-    return `https://map.kakao.com/link/search/${encodeURIComponent(
-      place.addr1
-    )}`;
-  }
-
-  return "";
 }
