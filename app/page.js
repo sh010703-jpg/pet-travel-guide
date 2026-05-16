@@ -24,16 +24,31 @@ const AREA_LIST = [
   { name: "제주", code: "39" },
 ];
 
+const TYPE_LIST = [
+  { name: "전체", code: "" },
+  { name: "관광지", code: "12" },
+  { name: "문화시설", code: "14" },
+  { name: "축제/공연", code: "15" },
+  { name: "레포츠", code: "28" },
+  { name: "숙박", code: "32" },
+  { name: "쇼핑", code: "38" },
+  { name: "음식점", code: "39" },
+];
+
 export default function Home() {
   const [places, setPlaces] = useState([]);
   const [keyword, setKeyword] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
-  const [selectedType, setSelectedType] = useState("전체");
+  const [selectedType, setSelectedType] = useState("");
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function loadPlaces(searchKeyword = keyword, areaCode = selectedArea) {
+  async function loadPlaces({
+    searchKeyword = keyword,
+    areaCode = selectedArea,
+    contentTypeId = selectedType,
+  } = {}) {
     try {
       setLoading(true);
       setError("");
@@ -50,17 +65,21 @@ export default function Home() {
         params.append("areaCode", areaCode);
       }
 
+      if (contentTypeId) {
+        params.append("contentTypeId", contentTypeId);
+      }
+
       const res = await fetch(`/api/places?${params.toString()}`);
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "데이터를 불러오지 못했습니다.");
+        throw new Error(data.error || data.detail || "데이터를 불러오지 못했습니다.");
       }
 
       setPlaces(data.items || []);
     } catch (err) {
-      setError(err.message);
       setPlaces([]);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -88,20 +107,25 @@ export default function Home() {
           params.append("pageNo", "1");
           params.append("numOfRows", "80");
 
+          if (selectedType) {
+            params.append("contentTypeId", selectedType);
+          }
+
           const res = await fetch(`/api/places?${params.toString()}`);
           const data = await res.json();
 
           if (!res.ok) {
-            throw new Error(data.error || "가까운 장소를 불러오지 못했습니다.");
+            throw new Error(
+              data.error || data.detail || "가까운 장소를 불러오지 못했습니다."
+            );
           }
 
           setPlaces(data.items || []);
           setKeyword("");
           setSelectedArea("");
-          setSelectedType("전체");
         } catch (err) {
-          setError(err.message);
           setPlaces([]);
+          setError(err.message);
         } finally {
           setLoading(false);
         }
@@ -115,35 +139,54 @@ export default function Home() {
   }
 
   useEffect(() => {
-    loadPlaces("", "");
+    loadPlaces({
+      searchKeyword: "",
+      areaCode: "",
+      contentTypeId: "",
+    });
   }, []);
 
   function handleSearch(e) {
     e.preventDefault();
-    loadPlaces(keyword, selectedArea);
+
+    loadPlaces({
+      searchKeyword: keyword,
+      areaCode: selectedArea,
+      contentTypeId: selectedType,
+    });
   }
 
   function handleAreaChange(e) {
     const areaCode = e.target.value;
     setSelectedArea(areaCode);
-    setSelectedType("전체");
-    loadPlaces(keyword, areaCode);
+
+    loadPlaces({
+      searchKeyword: keyword,
+      areaCode,
+      contentTypeId: selectedType,
+    });
   }
 
-  const typeList = useMemo(() => {
-    const list = places
-      .map((place) => getContentTypeName(place.contenttypeid))
-      .filter(Boolean);
+  function handleTypeChange(e) {
+    const contentTypeId = e.target.value;
+    setSelectedType(contentTypeId);
 
-    return ["전체", ...new Set(list)];
-  }, [places]);
+    loadPlaces({
+      searchKeyword: keyword,
+      areaCode: selectedArea,
+      contentTypeId,
+    });
+  }
+
+  const selectedAreaName =
+    AREA_LIST.find((area) => area.code === selectedArea)?.name || "전국";
+
+  const selectedTypeName =
+    TYPE_LIST.find((type) => type.code === selectedType)?.name || "전체";
 
   const filteredPlaces = useMemo(() => {
-    return places.filter((place) => {
-      const typeName = getContentTypeName(place.contenttypeid);
-      return selectedType === "전체" || typeName === selectedType;
-    });
-  }, [places, selectedType]);
+    return places;
+  }, [places]);
 
   function recommendRandomPlace() {
     if (filteredPlaces.length === 0) {
@@ -200,13 +243,10 @@ export default function Home() {
           ))}
         </select>
 
-        <select
-          value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value)}
-        >
-          {typeList.map((type) => (
-            <option key={type} value={type}>
-              {type}
+        <select value={selectedType} onChange={handleTypeChange}>
+          {TYPE_LIST.map((type) => (
+            <option key={type.name} value={type.code}>
+              {type.name}
             </option>
           ))}
         </select>
@@ -218,8 +258,9 @@ export default function Home() {
 
       <section className="resultInfo">
         <p>
-          총 <strong>{filteredPlaces.length}</strong>개의 반려동물 동반 장소가
-          검색되었습니다.
+          <strong>{selectedAreaName}</strong> / <strong>{selectedTypeName}</strong>{" "}
+          기준으로 총 <strong>{filteredPlaces.length}</strong>개의 반려동물 동반
+          장소가 검색되었습니다.
         </p>
 
         <div className="resultButtons">
@@ -247,7 +288,11 @@ export default function Home() {
 
       {error && <p className="error">오류: {error}</p>}
 
-      {!loading && !error && (
+      {!loading && !error && filteredPlaces.length === 0 && (
+        <p className="status">조건에 맞는 장소가 없습니다. 지역이나 유형을 바꿔보세요.</p>
+      )}
+
+      {!loading && !error && filteredPlaces.length > 0 && (
         <section className="grid">
           {filteredPlaces.map((place) => (
             <PlaceCard
