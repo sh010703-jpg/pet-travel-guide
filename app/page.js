@@ -328,15 +328,16 @@ export default function Home() {
       <section className="resultInfo">
         <div>
           {!hasSearched ? (
-            <>
-              <p>
-                지역이나 장소명을 선택한 뒤 검색해보세요. 처음 화면에서는 API를
-                호출하지 않습니다.
-              </p>
-              <p className="pageSummary">
-                공유용 안정 버전입니다. 필요한 데이터만 12개씩 불러옵니다.
-              </p>
-            </>
+            <p
+              style={{
+                fontSize: "22px",
+                fontWeight: "800",
+                color: "#7b6365",
+                lineHeight: "1.7",
+              }}
+            >
+              지역이나 장소명을 선택한 뒤 검색해 보세요.
+            </p>
           ) : (
             <>
               <p>
