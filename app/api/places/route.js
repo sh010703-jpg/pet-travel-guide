@@ -10,6 +10,32 @@ const VALID_CONTENT_TYPES = {
   "39": "음식점/카페",
 };
 
+const FOOD_CAFE_KEYWORDS = [
+  "카페",
+  "커피",
+  "브런치",
+  "디저트",
+  "베이커리",
+  "식당",
+  "레스토랑",
+  "맛집",
+];
+
+const FOOD_CAFE_EXCLUDE_WORDS = [
+  "약국",
+  "병원",
+  "동물병원",
+  "백화점",
+  "아울렛",
+  "마트",
+  "슈퍼",
+  "쇼핑몰",
+  "시장",
+  "펫샵",
+  "용품",
+  "편집숍",
+];
+
 function makeCommonUrl(baseUrl, serviceKey, pageNo, numOfRows) {
   const url = new URL(baseUrl);
 
@@ -62,9 +88,34 @@ async function fetchTourApi(url) {
   return {
     items: itemList,
     totalCount: Number(body?.totalCount || 0),
-    pageNo: Number(body?.pageNo || pageNo || 1),
+    pageNo: Number(body?.pageNo || 1),
     numOfRows: Number(body?.numOfRows || itemList.length || 0),
   };
+}
+
+function removeDuplicates(items) {
+  const uniqueItems = [];
+  const seen = new Set();
+
+  for (const item of items) {
+    const key = item.contentid || `${item.title}-${item.addr1}`;
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueItems.push(item);
+    }
+  }
+
+  return uniqueItems;
+}
+
+function getText(item) {
+  return `
+    ${item.title || ""}
+    ${item.addr1 || ""}
+    ${item.addr2 || ""}
+    ${item.tel || ""}
+  `.toLowerCase();
 }
 
 function filterExactContentType(items, contentTypeId) {
@@ -77,11 +128,114 @@ function filterExactContentType(items, contentTypeId) {
   );
 }
 
+function filterFoodCafeItems(items) {
+  return items.filter((item) => {
+    const text = getText(item);
+
+    const isOfficialFood = String(item.contenttypeid) === "39";
+
+    const hasFoodCafeKeyword = FOOD_CAFE_KEYWORDS.some((word) =>
+      text.includes(word.toLowerCase())
+    );
+
+    const hasExcludeKeyword = FOOD_CAFE_EXCLUDE_WORDS.some((word) =>
+      text.includes(word.toLowerCase())
+    );
+
+    return (isOfficialFood || hasFoodCafeKeyword) && !hasExcludeKeyword;
+  });
+}
+
+async function fetchSinglePage({
+  serviceKey,
+  baseUrl,
+  pageNo,
+  numOfRows,
+  keyword,
+  areaCode,
+  contentTypeId,
+  mode,
+  mapX,
+  mapY,
+  radius,
+}) {
+  const url = makeCommonUrl(baseUrl, serviceKey, pageNo, numOfRows);
+
+  if (mode === "nearby") {
+    url.searchParams.set("arrange", "E");
+    url.searchParams.append("mapX", mapX);
+    url.searchParams.append("mapY", mapY);
+    url.searchParams.append("radius", radius);
+  }
+
+  if (keyword) {
+    url.searchParams.append("keyword", keyword);
+  }
+
+  if (areaCode) {
+    url.searchParams.append("areaCode", areaCode);
+  }
+
+  if (contentTypeId) {
+    url.searchParams.append("contentTypeId", contentTypeId);
+  }
+
+  return await fetchTourApi(url);
+}
+
+async function fetchFoodCafeExpanded({
+  serviceKey,
+  areaCode,
+  pageNo,
+  numOfRows,
+}) {
+  let allItems = [];
+
+  const officialFoodResult = await fetchSinglePage({
+    serviceKey,
+    baseUrl: "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
+    pageNo,
+    numOfRows,
+    areaCode,
+    contentTypeId: "39",
+  });
+
+  allItems = [...allItems, ...officialFoodResult.items];
+
+  for (const word of FOOD_CAFE_KEYWORDS) {
+    try {
+      const keywordResult = await fetchSinglePage({
+        serviceKey,
+        baseUrl:
+          "https://apis.data.go.kr/B551011/KorPetTourService2/searchKeyword2",
+        pageNo: 1,
+        numOfRows,
+        keyword: word,
+        areaCode,
+      });
+
+      allItems = [...allItems, ...keywordResult.items];
+    } catch {
+      // 특정 키워드가 실패해도 전체 검색은 계속 진행
+    }
+  }
+
+  let items = removeDuplicates(allItems);
+  items = filterFoodCafeItems(items);
+
+  return {
+    items: items.slice(0, numOfRows),
+    totalCount: items.length,
+    pageNo: Number(pageNo),
+    numOfRows: Number(numOfRows),
+  };
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
 
-  const pageNo = searchParams.get("pageNo") || "1";
-  const numOfRows = searchParams.get("numOfRows") || "12";
+  const pageNo = Number(searchParams.get("pageNo") || "1");
+  const numOfRows = Number(searchParams.get("numOfRows") || "12");
   const keyword = searchParams.get("keyword") || "";
   const areaCode = searchParams.get("areaCode") || "";
   const contentTypeId = searchParams.get("contentTypeId") || "";
@@ -104,6 +258,17 @@ export async function GET(request) {
   }
 
   try {
+    if (contentTypeId === "39" && areaCode && !keyword.trim() && mode !== "nearby") {
+      const result = await fetchFoodCafeExpanded({
+        serviceKey,
+        areaCode,
+        pageNo,
+        numOfRows,
+      });
+
+      return NextResponse.json(result);
+    }
+
     let baseUrl = "";
 
     if (mode === "nearby") {
@@ -124,28 +289,19 @@ export async function GET(request) {
         "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2";
     }
 
-    const url = makeCommonUrl(baseUrl, serviceKey, pageNo, numOfRows);
-
-    if (mode === "nearby") {
-      url.searchParams.set("arrange", "E");
-      url.searchParams.append("mapX", mapX);
-      url.searchParams.append("mapY", mapY);
-      url.searchParams.append("radius", radius);
-    }
-
-    if (keyword.trim()) {
-      url.searchParams.append("keyword", keyword.trim());
-    }
-
-    if (areaCode) {
-      url.searchParams.append("areaCode", areaCode);
-    }
-
-    if (contentTypeId && VALID_CONTENT_TYPES[contentTypeId]) {
-      url.searchParams.append("contentTypeId", contentTypeId);
-    }
-
-    const result = await fetchTourApi(url);
+    const result = await fetchSinglePage({
+      serviceKey,
+      baseUrl,
+      pageNo,
+      numOfRows,
+      keyword: keyword.trim(),
+      areaCode,
+      contentTypeId,
+      mode,
+      mapX,
+      mapY,
+      radius,
+    });
 
     let items = result.items || [];
 
@@ -156,8 +312,8 @@ export async function GET(request) {
     return NextResponse.json({
       items,
       totalCount: result.totalCount,
-      pageNo: Number(pageNo),
-      numOfRows: Number(numOfRows),
+      pageNo,
+      numOfRows,
     });
   } catch (error) {
     return NextResponse.json(
