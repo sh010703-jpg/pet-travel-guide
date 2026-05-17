@@ -24,6 +24,27 @@ const AREA_LIST = [
   { name: "제주", code: "39" },
 ];
 
+const AREA_NAME_MAP = {
+  "": "전국",
+  "1": "서울",
+  "2": "인천",
+  "3": "대전",
+  "4": "대구",
+  "5": "광주",
+  "6": "부산",
+  "7": "울산",
+  "8": "세종",
+  "31": "경기",
+  "32": "강원",
+  "33": "충북",
+  "34": "충남",
+  "35": "경북",
+  "36": "경남",
+  "37": "전북",
+  "38": "전남",
+  "39": "제주",
+};
+
 const TYPE_LIST = [
   { name: "전체", code: "" },
   { name: "관광지", code: "12" },
@@ -36,6 +57,58 @@ const TYPE_LIST = [
 ];
 
 const PAGE_SIZE = 12;
+
+/*
+  음식점/카페 전용 확장 키워드
+  너무 적게 넣으면 카페만 나오거나 음식점이 빠질 수 있어서
+  음식 종류와 카페 계열을 함께 넣었습니다.
+*/
+const FOOD_CAFE_KEYWORDS = [
+  "음식점",
+  "식당",
+  "맛집",
+  "레스토랑",
+  "한식",
+  "중식",
+  "일식",
+  "양식",
+  "분식",
+  "브런치",
+  "베이커리",
+  "카페",
+  "커피",
+  "디저트",
+  "애견카페",
+  "펫카페",
+  "반려견카페",
+  "반려동물카페",
+  "고기집",
+  "국밥",
+  "횟집",
+  "파스타",
+  "피자",
+  "치킨",
+  "돈까스",
+  "초밥",
+  "라멘",
+];
+
+const FOOD_CAFE_EXCLUDE_WORDS = [
+  "약국",
+  "병원",
+  "동물병원",
+  "백화점",
+  "아울렛",
+  "마트",
+  "슈퍼",
+  "쇼핑몰",
+  "시장",
+  "펫샵",
+  "용품",
+  "편집숍",
+  "기념품",
+  "몰",
+];
 
 export default function Home() {
   const [places, setPlaces] = useState([]);
@@ -52,6 +125,135 @@ export default function Home() {
   const [nearbyMode, setNearbyMode] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(null);
 
+  async function fetchJson(params) {
+    const res = await fetch(`/api/places?${params.toString()}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data.detail || data.error || "데이터를 불러오지 못했습니다."
+      );
+    }
+
+    return data;
+  }
+
+  function removeDuplicates(items) {
+    const seen = new Set();
+
+    return items.filter((item) => {
+      const key = item.contentid || `${item.title}-${item.addr1}`;
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function filterFoodCafeItems(items) {
+    return items.filter((item) => {
+      const text = `
+        ${item.title || ""}
+        ${item.addr1 || ""}
+        ${item.addr2 || ""}
+        ${item.tel || ""}
+      `.toLowerCase();
+
+      return !FOOD_CAFE_EXCLUDE_WORDS.some((word) =>
+        text.includes(word.toLowerCase())
+      );
+    });
+  }
+
+  function normalizeFoodCafeItems(items) {
+    return items.map((item) => ({
+      ...item,
+      contenttypeid: "39",
+    }));
+  }
+
+  async function loadFoodCafePlaces({ areaCode, page }) {
+    const areaName = AREA_NAME_MAP[areaCode] || "";
+
+    /*
+      1. 공식 음식점/카페 분류 39번
+      원시학처럼 기존에 나오던 음식점은 여기서 가져옵니다.
+    */
+    const foodParams = new URLSearchParams();
+    foodParams.append("pageNo", "1");
+    foodParams.append("numOfRows", "100");
+
+    if (areaCode) {
+      foodParams.append("areaCode", areaCode);
+    }
+
+    foodParams.append("contentTypeId", "39");
+
+    /*
+      2. 키워드 검색
+      areaCode + 키워드 방식과 "부산 카페"처럼 지역명을 포함한 방식 둘 다 사용합니다.
+    */
+    const keywordSearches = [];
+
+    FOOD_CAFE_KEYWORDS.forEach((word) => {
+      if (areaCode) {
+        keywordSearches.push({
+          keyword: word,
+          areaCode,
+        });
+      }
+
+      if (areaName && areaName !== "전국") {
+        keywordSearches.push({
+          keyword: `${areaName} ${word}`,
+          areaCode: "",
+        });
+      }
+    });
+
+    const requests = [
+      fetchJson(foodParams),
+      ...keywordSearches.map((search) => {
+        const params = new URLSearchParams();
+        params.append("pageNo", "1");
+        params.append("numOfRows", "100");
+        params.append("keyword", search.keyword);
+
+        if (search.areaCode) {
+          params.append("areaCode", search.areaCode);
+        }
+
+        return fetchJson(params);
+      }),
+    ];
+
+    const results = await Promise.allSettled(requests);
+
+    let merged = [];
+
+    results.forEach((result) => {
+      if (result.status === "fulfilled") {
+        merged = [...merged, ...(result.value.items || [])];
+      }
+    });
+
+    let uniqueItems = removeDuplicates(merged);
+    uniqueItems = filterFoodCafeItems(uniqueItems);
+    uniqueItems = normalizeFoodCafeItems(uniqueItems);
+
+    const startIndex = (page - 1) * PAGE_SIZE;
+    const endIndex = startIndex + PAGE_SIZE;
+    const pageItems = uniqueItems.slice(startIndex, endIndex);
+
+    return {
+      items: pageItems,
+      totalCount: uniqueItems.length,
+    };
+  }
+
   async function loadPlaces({
     searchKeyword = keyword,
     areaCode = selectedArea,
@@ -66,10 +268,9 @@ export default function Home() {
       setHasSearched(true);
 
       /*
-        음식점/카페 선택 + 지역 선택 + 검색어 없음일 때:
-        1. 공식 음식점/카페 39번 결과
-        2. 카페 키워드 검색 결과
-        두 결과를 합쳐서 보여줍니다.
+        음식점/카페만 확장 검색합니다.
+        관광지, 문화시설, 축제/공연, 레포츠, 숙박, 쇼핑은
+        공공데이터 contentTypeId 기준으로 정확히 가져옵니다.
       */
       if (
         typeCode === "39" &&
@@ -77,89 +278,13 @@ export default function Home() {
         !searchKeyword.trim() &&
         mode !== "nearby"
       ) {
-        const foodParams = new URLSearchParams();
-        foodParams.append("pageNo", String(page));
-        foodParams.append("numOfRows", String(PAGE_SIZE));
-        foodParams.append("areaCode", areaCode);
-        foodParams.append("contentTypeId", "39");
-
-        const cafeParams = new URLSearchParams();
-        cafeParams.append("pageNo", String(page));
-        cafeParams.append("numOfRows", String(PAGE_SIZE));
-        cafeParams.append("areaCode", areaCode);
-        cafeParams.append("keyword", "카페");
-
-        const [foodRes, cafeRes] = await Promise.all([
-          fetch(`/api/places?${foodParams.toString()}`),
-          fetch(`/api/places?${cafeParams.toString()}`),
-        ]);
-
-        const foodData = await foodRes.json();
-        const cafeData = await cafeRes.json();
-
-        if (!foodRes.ok) {
-          throw new Error(
-            foodData.detail ||
-              foodData.error ||
-              "음식점 데이터를 불러오지 못했습니다."
-          );
-        }
-
-        if (!cafeRes.ok) {
-          throw new Error(
-            cafeData.detail ||
-              cafeData.error ||
-              "카페 데이터를 불러오지 못했습니다."
-          );
-        }
-
-        const merged = [...(foodData.items || []), ...(cafeData.items || [])];
-
-        const seen = new Set();
-
-        const uniqueItems = merged.filter((item) => {
-          const key = item.contentid || `${item.title}-${item.addr1}`;
-
-          if (seen.has(key)) {
-            return false;
-          }
-
-          seen.add(key);
-          return true;
+        const result = await loadFoodCafePlaces({
+          areaCode,
+          page,
         });
 
-        const filteredItems = uniqueItems.filter((item) => {
-          const text = `
-            ${item.title || ""}
-            ${item.addr1 || ""}
-            ${item.addr2 || ""}
-          `.toLowerCase();
-
-          const excludeWords = [
-            "약국",
-            "병원",
-            "동물병원",
-            "백화점",
-            "아울렛",
-            "마트",
-            "쇼핑몰",
-            "시장",
-            "펫샵",
-            "용품",
-          ];
-
-          return !excludeWords.some((word) =>
-            text.includes(word.toLowerCase())
-          );
-        });
-
-        const normalizedItems = filteredItems.map((item) => ({
-          ...item,
-          contenttypeid: "39",
-        }));
-
-        setPlaces(normalizedItems);
-        setTotalCount(normalizedItems.length);
+        setPlaces(result.items);
+        setTotalCount(result.totalCount);
         setCurrentPage(page);
         return;
       }
@@ -191,14 +316,7 @@ export default function Home() {
         params.append("radius", "10000");
       }
 
-      const res = await fetch(`/api/places?${params.toString()}`);
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(
-          data.detail || data.error || "데이터를 불러오지 못했습니다."
-        );
-      }
+      const data = await fetchJson(params);
 
       setPlaces(data.items || []);
       setTotalCount(data.totalCount || 0);
@@ -493,7 +611,7 @@ export default function Home() {
           <section className="grid">
             {places.map((place) => (
               <PlaceCard
-                key={place.contentid}
+                key={place.contentid || `${place.title}-${place.addr1}`}
                 place={place}
                 onSelect={() => setSelectedPlace(place)}
               />
