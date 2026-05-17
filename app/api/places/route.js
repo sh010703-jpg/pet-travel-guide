@@ -32,15 +32,18 @@ const AREA_NAME_MAP = {
 
 const FOOD_CAFE_KEYWORDS = [
   "카페",
+  "커피",
   "애견카페",
   "펫카페",
   "반려견카페",
+  "반려동물카페",
+  "브런치",
+  "디저트",
+  "베이커리",
   "식당",
   "음식점",
   "레스토랑",
-  "브런치",
-  "베이커리",
-  "커피",
+  "맛집",
 ];
 
 const EXCLUDE_WORDS = [
@@ -116,6 +119,43 @@ async function fetchTourApi(url) {
   };
 }
 
+async function fetchSinglePage({
+  serviceKey,
+  baseUrl,
+  pageNo,
+  numOfRows,
+  keyword,
+  areaCode,
+  contentTypeId,
+  mode,
+  mapX,
+  mapY,
+  radius,
+}) {
+  const url = makeCommonUrl(baseUrl, serviceKey, pageNo, numOfRows);
+
+  if (mode === "nearby") {
+    url.searchParams.set("arrange", "E");
+    url.searchParams.append("mapX", mapX);
+    url.searchParams.append("mapY", mapY);
+    url.searchParams.append("radius", radius);
+  }
+
+  if (keyword) {
+    url.searchParams.append("keyword", keyword);
+  }
+
+  if (areaCode) {
+    url.searchParams.append("areaCode", areaCode);
+  }
+
+  if (contentTypeId) {
+    url.searchParams.append("contentTypeId", contentTypeId);
+  }
+
+  return await fetchTourApi(url);
+}
+
 function removeDuplicates(items) {
   const uniqueItems = [];
   const seen = new Set();
@@ -157,48 +197,11 @@ function filterExactContentType(items, contentTypeId) {
   );
 }
 
-function normalizeFoodCafeItem(item) {
+function normalizeAsFoodCafe(item) {
   return {
     ...item,
     contenttypeid: "39",
   };
-}
-
-async function fetchSinglePage({
-  serviceKey,
-  baseUrl,
-  pageNo,
-  numOfRows,
-  keyword,
-  areaCode,
-  contentTypeId,
-  mode,
-  mapX,
-  mapY,
-  radius,
-}) {
-  const url = makeCommonUrl(baseUrl, serviceKey, pageNo, numOfRows);
-
-  if (mode === "nearby") {
-    url.searchParams.set("arrange", "E");
-    url.searchParams.append("mapX", mapX);
-    url.searchParams.append("mapY", mapY);
-    url.searchParams.append("radius", radius);
-  }
-
-  if (keyword) {
-    url.searchParams.append("keyword", keyword);
-  }
-
-  if (areaCode) {
-    url.searchParams.append("areaCode", areaCode);
-  }
-
-  if (contentTypeId) {
-    url.searchParams.append("contentTypeId", contentTypeId);
-  }
-
-  return await fetchTourApi(url);
 }
 
 async function fetchFoodAndCafe({
@@ -210,11 +213,11 @@ async function fetchFoodAndCafe({
   let allItems = [];
 
   /*
-    1. 공식 음식점 분류 39번 결과
-    기존에 나오던 원시학 같은 음식점은 여기서 유지됩니다.
+    1. 공식 음식점/카페 분류 39번
+    원시학 같은 기존 음식점은 여기서 반드시 포함됩니다.
   */
   try {
-    const officialFoodResult = await fetchSinglePage({
+    const foodResult = await fetchSinglePage({
       serviceKey,
       baseUrl:
         "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
@@ -224,23 +227,37 @@ async function fetchFoodAndCafe({
       contentTypeId: "39",
     });
 
-    allItems = [...allItems, ...(officialFoodResult.items || [])];
+    allItems = [...allItems, ...(foodResult.items || [])];
   } catch {
-    // 공식 음식점 조회가 실패해도 카페 키워드 검색은 계속 진행
+    // 공식 음식점 조회 실패 시에도 카페 키워드 검색은 계속 진행
   }
 
   /*
     2. 카페/식당 키워드 검색
-    areaCode 방식 + 지역명 키워드 방식을 함께 씁니다.
-    예: areaCode=6 + 카페
-    예: 부산 카페
+    방법 A: areaCode=6 + keyword=카페
+    방법 B: keyword=부산 카페
+    둘 다 시도합니다.
   */
   const areaName = AREA_NAME_MAP[areaCode] || "";
 
   for (const word of FOOD_CAFE_KEYWORDS) {
-    const searchQueries = areaName ? [word, `${areaName} ${word}`] : [word];
+    const searchCases = [];
 
-    for (const searchKeyword of searchQueries) {
+    if (areaCode) {
+      searchCases.push({
+        keyword: word,
+        areaCode,
+      });
+    }
+
+    if (areaName) {
+      searchCases.push({
+        keyword: `${areaName} ${word}`,
+        areaCode: "",
+      });
+    }
+
+    for (const item of searchCases) {
       try {
         const keywordResult = await fetchSinglePage({
           serviceKey,
@@ -248,8 +265,8 @@ async function fetchFoodAndCafe({
             "https://apis.data.go.kr/B551011/KorPetTourService2/searchKeyword2",
           pageNo: 1,
           numOfRows: 100,
-          keyword: searchKeyword,
-          areaCode: searchKeyword === word ? areaCode : "",
+          keyword: item.keyword,
+          areaCode: item.areaCode,
         });
 
         allItems = [...allItems, ...(keywordResult.items || [])];
@@ -265,14 +282,14 @@ async function fetchFoodAndCafe({
   let items = removeDuplicates(allItems);
 
   /*
-    4. 약국/병원/쇼핑몰 등 제외
+    4. 약국, 병원, 백화점, 쇼핑몰 등 제외
   */
   items = items.filter((item) => !hasExcludeWord(item));
 
   /*
-    5. 음식점/카페로 화면에 표시되도록 contenttypeid 통일
+    5. 화면에서 모두 음식점/카페로 보이게 통일
   */
-  items = items.map(normalizeFoodCafeItem);
+  items = items.map(normalizeAsFoodCafe);
 
   /*
     6. 페이지 단위 반환
@@ -318,8 +335,8 @@ export async function GET(request) {
   try {
     /*
       핵심:
-      지역 + 음식점/카페 선택 시
-      공식 음식점 39번 + 카페 키워드 검색 결과를 함께 반환합니다.
+      지역 + 음식점/카페 선택 + 검색어 없음
+      → 음식점 39번 + 카페 키워드 검색 결과를 합쳐서 반환
     */
     if (
       contentTypeId === "39" &&
