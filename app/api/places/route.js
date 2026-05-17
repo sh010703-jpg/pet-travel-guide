@@ -12,6 +12,10 @@ const VALID_CONTENT_TYPES = {
 
 const FOOD_CAFE_KEYWORDS = [
   "카페",
+  "애견카페",
+  "펫카페",
+  "반려견카페",
+  "반려동물카페",
   "커피",
   "브런치",
   "디저트",
@@ -34,6 +38,8 @@ const FOOD_CAFE_EXCLUDE_WORDS = [
   "펫샵",
   "용품",
   "편집숍",
+  "기념품",
+  "몰",
 ];
 
 function makeCommonUrl(baseUrl, serviceKey, pageNo, numOfRows) {
@@ -118,6 +124,14 @@ function getText(item) {
   `.toLowerCase();
 }
 
+function hasExcludeWord(item) {
+  const text = getText(item);
+
+  return FOOD_CAFE_EXCLUDE_WORDS.some((word) =>
+    text.includes(word.toLowerCase())
+  );
+}
+
 function filterExactContentType(items, contentTypeId) {
   if (!contentTypeId) {
     return items;
@@ -126,24 +140,6 @@ function filterExactContentType(items, contentTypeId) {
   return items.filter(
     (item) => String(item.contenttypeid) === String(contentTypeId)
   );
-}
-
-function filterFoodCafeItems(items) {
-  return items.filter((item) => {
-    const text = getText(item);
-
-    const isOfficialFood = String(item.contenttypeid) === "39";
-
-    const hasFoodCafeKeyword = FOOD_CAFE_KEYWORDS.some((word) =>
-      text.includes(word.toLowerCase())
-    );
-
-    const hasExcludeKeyword = FOOD_CAFE_EXCLUDE_WORDS.some((word) =>
-      text.includes(word.toLowerCase())
-    );
-
-    return (isOfficialFood || hasFoodCafeKeyword) && !hasExcludeKeyword;
-  });
 }
 
 async function fetchSinglePage({
@@ -191,17 +187,30 @@ async function fetchFoodCafeExpanded({
 }) {
   let allItems = [];
 
-  const officialFoodResult = await fetchSinglePage({
-    serviceKey,
-    baseUrl: "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
-    pageNo,
-    numOfRows,
-    areaCode,
-    contentTypeId: "39",
-  });
+  /*
+    1. 공식 음식점/카페 분류 39
+  */
+  try {
+    const officialFoodResult = await fetchSinglePage({
+      serviceKey,
+      baseUrl:
+        "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
+      pageNo: 1,
+      numOfRows: 100,
+      areaCode,
+      contentTypeId: "39",
+    });
 
-  allItems = [...allItems, ...officialFoodResult.items];
+    allItems = [...allItems, ...officialFoodResult.items];
+  } catch {
+    // 공식 음식점 분류가 실패해도 키워드 검색은 계속 진행
+  }
 
+  /*
+    2. 카페/식당 관련 키워드 확장 검색
+    여기서는 contentTypeId를 일부러 넣지 않습니다.
+    그래야 공공데이터에서 관광지/기타로 분류된 카페성 장소도 잡힙니다.
+  */
   for (const word of FOOD_CAFE_KEYWORDS) {
     try {
       const keywordResult = await fetchSinglePage({
@@ -209,7 +218,7 @@ async function fetchFoodCafeExpanded({
         baseUrl:
           "https://apis.data.go.kr/B551011/KorPetTourService2/searchKeyword2",
         pageNo: 1,
-        numOfRows,
+        numOfRows: 100,
         keyword: word,
         areaCode,
       });
@@ -221,10 +230,21 @@ async function fetchFoodCafeExpanded({
   }
 
   let items = removeDuplicates(allItems);
-  items = filterFoodCafeItems(items);
+
+  /*
+    3. 약국, 백화점, 쇼핑몰 등 제외
+  */
+  items = items.filter((item) => !hasExcludeWord(item));
+
+  /*
+    4. 페이지 단위로 잘라서 반환
+  */
+  const startIndex = (Number(pageNo) - 1) * Number(numOfRows);
+  const endIndex = startIndex + Number(numOfRows);
+  const pagedItems = items.slice(startIndex, endIndex);
 
   return {
-    items: items.slice(0, numOfRows),
+    items: pagedItems,
     totalCount: items.length,
     pageNo: Number(pageNo),
     numOfRows: Number(numOfRows),
@@ -258,7 +278,16 @@ export async function GET(request) {
   }
 
   try {
-    if (contentTypeId === "39" && areaCode && !keyword.trim() && mode !== "nearby") {
+    /*
+      부산 / 음식점·카페처럼 지역 + 음식점/카페를 선택한 경우
+      공식 39번 + 카페/식당 키워드 확장 검색
+    */
+    if (
+      contentTypeId === "39" &&
+      areaCode &&
+      !keyword.trim() &&
+      mode !== "nearby"
+    ) {
       const result = await fetchFoodCafeExpanded({
         serviceKey,
         areaCode,
