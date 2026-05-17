@@ -65,6 +65,105 @@ export default function Home() {
       setError("");
       setHasSearched(true);
 
+      /*
+        음식점/카페 선택 + 지역 선택 + 검색어 없음일 때:
+        1. 공식 음식점/카페 39번 결과
+        2. 카페 키워드 검색 결과
+        두 결과를 합쳐서 보여줍니다.
+      */
+      if (
+        typeCode === "39" &&
+        areaCode &&
+        !searchKeyword.trim() &&
+        mode !== "nearby"
+      ) {
+        const foodParams = new URLSearchParams();
+        foodParams.append("pageNo", String(page));
+        foodParams.append("numOfRows", String(PAGE_SIZE));
+        foodParams.append("areaCode", areaCode);
+        foodParams.append("contentTypeId", "39");
+
+        const cafeParams = new URLSearchParams();
+        cafeParams.append("pageNo", String(page));
+        cafeParams.append("numOfRows", String(PAGE_SIZE));
+        cafeParams.append("areaCode", areaCode);
+        cafeParams.append("keyword", "카페");
+
+        const [foodRes, cafeRes] = await Promise.all([
+          fetch(`/api/places?${foodParams.toString()}`),
+          fetch(`/api/places?${cafeParams.toString()}`),
+        ]);
+
+        const foodData = await foodRes.json();
+        const cafeData = await cafeRes.json();
+
+        if (!foodRes.ok) {
+          throw new Error(
+            foodData.detail ||
+              foodData.error ||
+              "음식점 데이터를 불러오지 못했습니다."
+          );
+        }
+
+        if (!cafeRes.ok) {
+          throw new Error(
+            cafeData.detail ||
+              cafeData.error ||
+              "카페 데이터를 불러오지 못했습니다."
+          );
+        }
+
+        const merged = [...(foodData.items || []), ...(cafeData.items || [])];
+
+        const seen = new Set();
+
+        const uniqueItems = merged.filter((item) => {
+          const key = item.contentid || `${item.title}-${item.addr1}`;
+
+          if (seen.has(key)) {
+            return false;
+          }
+
+          seen.add(key);
+          return true;
+        });
+
+        const filteredItems = uniqueItems.filter((item) => {
+          const text = `
+            ${item.title || ""}
+            ${item.addr1 || ""}
+            ${item.addr2 || ""}
+          `.toLowerCase();
+
+          const excludeWords = [
+            "약국",
+            "병원",
+            "동물병원",
+            "백화점",
+            "아울렛",
+            "마트",
+            "쇼핑몰",
+            "시장",
+            "펫샵",
+            "용품",
+          ];
+
+          return !excludeWords.some((word) =>
+            text.includes(word.toLowerCase())
+          );
+        });
+
+        const normalizedItems = filteredItems.map((item) => ({
+          ...item,
+          contenttypeid: "39",
+        }));
+
+        setPlaces(normalizedItems);
+        setTotalCount(normalizedItems.length);
+        setCurrentPage(page);
+        return;
+      }
+
       const params = new URLSearchParams();
       params.append("pageNo", String(page));
       params.append("numOfRows", String(PAGE_SIZE));
