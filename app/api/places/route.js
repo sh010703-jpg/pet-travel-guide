@@ -25,6 +25,22 @@ const FOOD_CAFE_KEYWORDS = [
   "맛집",
 ];
 
+const FOOD_CAFE_INCLUDE_WORDS = [
+  "카페",
+  "커피",
+  "coffee",
+  "브런치",
+  "디저트",
+  "베이커리",
+  "식당",
+  "레스토랑",
+  "맛집",
+  "펫카페",
+  "애견카페",
+  "반려견",
+  "반려동물",
+];
+
 const FOOD_CAFE_EXCLUDE_WORDS = [
   "약국",
   "병원",
@@ -39,7 +55,6 @@ const FOOD_CAFE_EXCLUDE_WORDS = [
   "용품",
   "편집숍",
   "기념품",
-  "몰",
 ];
 
 function makeCommonUrl(baseUrl, serviceKey, pageNo, numOfRows) {
@@ -69,7 +84,10 @@ async function fetchTourApi(url) {
     data = JSON.parse(text);
   } catch {
     throw new Error(
-      `공공데이터 응답이 JSON 형식이 아닙니다. 응답 일부: ${text.slice(0, 120)}`
+      `공공데이터 응답이 JSON 형식이 아닙니다. 응답 일부: ${text.slice(
+        0,
+        120
+      )}`
     );
   }
 
@@ -124,12 +142,30 @@ function getText(item) {
   `.toLowerCase();
 }
 
+function hasFoodCafeWord(item) {
+  const text = getText(item);
+
+  return FOOD_CAFE_INCLUDE_WORDS.some((word) =>
+    text.includes(word.toLowerCase())
+  );
+}
+
 function hasExcludeWord(item) {
   const text = getText(item);
 
   return FOOD_CAFE_EXCLUDE_WORDS.some((word) =>
     text.includes(word.toLowerCase())
   );
+}
+
+function filterFoodCafeItems(items) {
+  return items.filter((item) => {
+    const isOfficialFood = String(item.contenttypeid) === "39";
+    const isCafeLike = hasFoodCafeWord(item);
+    const isExcluded = hasExcludeWord(item);
+
+    return (isOfficialFood || isCafeLike) && !isExcluded;
+  });
 }
 
 function filterExactContentType(items, contentTypeId) {
@@ -203,13 +239,36 @@ async function fetchFoodCafeExpanded({
 
     allItems = [...allItems, ...officialFoodResult.items];
   } catch {
-    // 공식 음식점 분류가 실패해도 키워드 검색은 계속 진행
+    // 공식 음식점 분류가 실패해도 다음 검색은 계속 진행
   }
 
   /*
-    2. 카페/식당 관련 키워드 확장 검색
-    여기서는 contentTypeId를 일부러 넣지 않습니다.
-    그래야 공공데이터에서 관광지/기타로 분류된 카페성 장소도 잡힙니다.
+    2. 해당 지역 전체 데이터 중 카페성 단어가 있는 장소 찾기
+    예: 부산 전체 데이터 안에서 '카페', '커피', '브런치' 등이 들어간 장소
+  */
+  try {
+    const areaAllResult = await fetchSinglePage({
+      serviceKey,
+      baseUrl:
+        "https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2",
+      pageNo: 1,
+      numOfRows: 100,
+      areaCode,
+    });
+
+    const cafeLikeFromArea = areaAllResult.items.filter((item) =>
+      hasFoodCafeWord(item)
+    );
+
+    allItems = [...allItems, ...cafeLikeFromArea];
+  } catch {
+    // 지역 전체 조회가 실패해도 키워드 검색은 계속 진행
+  }
+
+  /*
+    3. 카페 관련 키워드 검색
+    여기서는 contentTypeId를 넣지 않습니다.
+    그래야 음식점 39가 아닌 다른 분류로 등록된 카페성 장소도 잡힙니다.
   */
   for (const word of FOOD_CAFE_KEYWORDS) {
     try {
@@ -229,15 +288,14 @@ async function fetchFoodCafeExpanded({
     }
   }
 
-  let items = removeDuplicates(allItems);
-
   /*
-    3. 약국, 백화점, 쇼핑몰 등 제외
+    4. 중복 제거 + 제외어 필터
   */
-  items = items.filter((item) => !hasExcludeWord(item));
+  let items = removeDuplicates(allItems);
+  items = filterFoodCafeItems(items);
 
   /*
-    4. 페이지 단위로 잘라서 반환
+    5. 페이지 단위 반환
   */
   const startIndex = (Number(pageNo) - 1) * Number(numOfRows);
   const endIndex = startIndex + Number(numOfRows);
@@ -279,8 +337,8 @@ export async function GET(request) {
 
   try {
     /*
-      부산 / 음식점·카페처럼 지역 + 음식점/카페를 선택한 경우
-      공식 39번 + 카페/식당 키워드 확장 검색
+      지역 + 음식점/카페 선택 시 확장 검색
+      예: 부산 / 음식점·카페
     */
     if (
       contentTypeId === "39" &&
