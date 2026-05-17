@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import "./globals.css";
 
 const AREA_LIST = [
@@ -44,24 +44,30 @@ export default function Home() {
   const [selectedArea, setSelectedArea] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [selectedPlace, setSelectedPlace] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [nearbyMode, setNearbyMode] = useState(false);
+  const [currentPosition, setCurrentPosition] = useState(null);
 
   async function loadPlaces({
     searchKeyword = keyword,
     areaCode = selectedArea,
     typeCode = selectedType,
+    page = 1,
+    mode = "",
+    position = currentPosition,
   } = {}) {
     try {
       setLoading(true);
       setError("");
-      setCurrentPage(1);
+      setHasSearched(true);
 
       const params = new URLSearchParams();
-      params.append("pageNo", "1");
-      params.append("numOfRows", "100");
+      params.append("pageNo", String(page));
+      params.append("numOfRows", String(PAGE_SIZE));
 
       if (searchKeyword.trim()) {
         params.append("keyword", searchKeyword.trim());
@@ -75,15 +81,29 @@ export default function Home() {
         params.append("contentTypeId", typeCode);
       }
 
+      if (mode === "nearby") {
+        if (!position) {
+          throw new Error("현재 위치 정보가 없습니다.");
+        }
+
+        params.append("mode", "nearby");
+        params.append("mapX", String(position.longitude));
+        params.append("mapY", String(position.latitude));
+        params.append("radius", "10000");
+      }
+
       const res = await fetch(`/api/places?${params.toString()}`);
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || data.detail || "데이터를 불러오지 못했습니다.");
+        throw new Error(
+          data.detail || data.error || "데이터를 불러오지 못했습니다."
+        );
       }
 
       setPlaces(data.items || []);
-      setTotalCount(data.totalCount || data.items?.length || 0);
+      setTotalCount(data.totalCount || 0);
+      setCurrentPage(page);
     } catch (err) {
       setPlaces([]);
       setTotalCount(0);
@@ -93,6 +113,47 @@ export default function Home() {
     }
   }
 
+  function handleSearch(e) {
+    e.preventDefault();
+    setNearbyMode(false);
+
+    loadPlaces({
+      searchKeyword: keyword,
+      areaCode: selectedArea,
+      typeCode: selectedType,
+      page: 1,
+      mode: "",
+    });
+  }
+
+  function handleAreaChange(e) {
+    const areaCode = e.target.value;
+    setSelectedArea(areaCode);
+    setNearbyMode(false);
+
+    loadPlaces({
+      searchKeyword: keyword,
+      areaCode,
+      typeCode: selectedType,
+      page: 1,
+      mode: "",
+    });
+  }
+
+  function handleTypeChange(e) {
+    const typeCode = e.target.value;
+    setSelectedType(typeCode);
+    setNearbyMode(false);
+
+    loadPlaces({
+      searchKeyword: keyword,
+      areaCode: selectedArea,
+      typeCode,
+      page: 1,
+      mode: "",
+    });
+  }
+
   async function findNearbyPlaces() {
     if (!navigator.geolocation) {
       alert("현재 브라우저에서는 위치 정보를 사용할 수 없습니다.");
@@ -100,46 +161,25 @@ export default function Home() {
     }
 
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          setLoading(true);
-          setError("");
-          setCurrentPage(1);
+      (position) => {
+        const coords = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
 
-          const { latitude, longitude } = position.coords;
+        setCurrentPosition(coords);
+        setNearbyMode(true);
+        setKeyword("");
+        setSelectedArea("");
 
-          const params = new URLSearchParams();
-          params.append("mode", "nearby");
-          params.append("mapX", longitude);
-          params.append("mapY", latitude);
-          params.append("radius", "10000");
-          params.append("pageNo", "1");
-          params.append("numOfRows", "100");
-
-          if (selectedType) {
-            params.append("contentTypeId", selectedType);
-          }
-
-          const res = await fetch(`/api/places?${params.toString()}`);
-          const data = await res.json();
-
-          if (!res.ok) {
-            throw new Error(
-              data.error || data.detail || "가까운 장소를 불러오지 못했습니다."
-            );
-          }
-
-          setPlaces(data.items || []);
-          setTotalCount(data.totalCount || data.items?.length || 0);
-          setKeyword("");
-          setSelectedArea("");
-        } catch (err) {
-          setPlaces([]);
-          setTotalCount(0);
-          setError(err.message);
-        } finally {
-          setLoading(false);
-        }
+        loadPlaces({
+          searchKeyword: "",
+          areaCode: "",
+          typeCode: selectedType,
+          page: 1,
+          mode: "nearby",
+          position: coords,
+        });
       },
       () => {
         alert(
@@ -149,83 +189,36 @@ export default function Home() {
     );
   }
 
-  useEffect(() => {
-    loadPlaces({
-      searchKeyword: "",
-      areaCode: "",
-      typeCode: "",
-    });
-  }, []);
-
-  function handleSearch(e) {
-    e.preventDefault();
-
-    loadPlaces({
-      searchKeyword: keyword,
-      areaCode: selectedArea,
-      typeCode: selectedType,
-    });
-  }
-
-  function handleAreaChange(e) {
-    const areaCode = e.target.value;
-    setSelectedArea(areaCode);
-
-    loadPlaces({
-      searchKeyword: keyword,
-      areaCode,
-      typeCode: selectedType,
-    });
-  }
-
-  function handleTypeChange(e) {
-    const typeCode = e.target.value;
-    setSelectedType(typeCode);
-
-    loadPlaces({
-      searchKeyword: keyword,
-      areaCode: selectedArea,
-      typeCode,
-    });
-  }
-
-  const selectedAreaName =
-    AREA_LIST.find((area) => area.code === selectedArea)?.name || "전국";
-
-  const selectedTypeName =
-    TYPE_LIST.find((type) => type.code === selectedType)?.name || "전체";
-
-  const filteredPlaces = useMemo(() => {
-    return places;
-  }, [places]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredPlaces.length / PAGE_SIZE));
-
-  const paginatedPlaces = useMemo(() => {
-    const startIndex = (currentPage - 1) * PAGE_SIZE;
-    const endIndex = startIndex + PAGE_SIZE;
-
-    return filteredPlaces.slice(startIndex, endIndex);
-  }, [filteredPlaces, currentPage]);
-
-  const startNumber =
-    filteredPlaces.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
-
-  const endNumber = Math.min(currentPage * PAGE_SIZE, filteredPlaces.length);
-
   function goToPage(page) {
     if (page < 1 || page > totalPages) {
       return;
     }
 
-    setCurrentPage(page);
+    if (nearbyMode) {
+      loadPlaces({
+        searchKeyword: "",
+        areaCode: "",
+        typeCode: selectedType,
+        page,
+        mode: "nearby",
+        position: currentPosition,
+      });
+    } else {
+      loadPlaces({
+        searchKeyword: keyword,
+        areaCode: selectedArea,
+        typeCode: selectedType,
+        page,
+        mode: "",
+      });
+    }
 
     setTimeout(() => {
       const resultSection = document.querySelector(".resultInfo");
       if (resultSection) {
         resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    }, 50);
+    }, 80);
   }
 
   function getVisiblePageNumbers() {
@@ -246,14 +239,32 @@ export default function Home() {
     return pages;
   }
 
+  const selectedAreaName =
+    AREA_LIST.find((area) => area.code === selectedArea)?.name || "전국";
+
+  const selectedTypeName =
+    TYPE_LIST.find((type) => type.code === selectedType)?.name || "전체";
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  const startNumber =
+    totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+
+  const endNumber = Math.min(currentPage * PAGE_SIZE, totalCount);
+
+  const visiblePages = useMemo(() => getVisiblePageNumbers(), [
+    currentPage,
+    totalPages,
+  ]);
+
   function recommendRandomPlace() {
-    if (filteredPlaces.length === 0) {
+    if (places.length === 0) {
       alert("추천할 장소가 없습니다. 검색어나 필터를 다시 확인해주세요.");
       return;
     }
 
-    const randomIndex = Math.floor(Math.random() * filteredPlaces.length);
-    setSelectedPlace(filteredPlaces[randomIndex]);
+    const randomIndex = Math.floor(Math.random() * places.length);
+    setSelectedPlace(places[randomIndex]);
   }
 
   return (
@@ -316,19 +327,33 @@ export default function Home() {
 
       <section className="resultInfo">
         <div>
-          <p>
-            <strong>{selectedAreaName}</strong> /{" "}
-            <strong>{selectedTypeName}</strong> 기준으로 총{" "}
-            <strong>{totalCount}</strong>개의 반려동물 동반 장소가
-            검색되었습니다.
-          </p>
+          {!hasSearched ? (
+            <>
+              <p>
+                지역이나 장소명을 선택한 뒤 검색해보세요. 처음 화면에서는 API를
+                호출하지 않습니다.
+              </p>
+              <p className="pageSummary">
+                공유용 안정 버전입니다. 필요한 데이터만 12개씩 불러옵니다.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                <strong>{nearbyMode ? "내 위치 기준" : selectedAreaName}</strong>{" "}
+                / <strong>{selectedTypeName}</strong> 기준으로 총{" "}
+                <strong>{totalCount}</strong>개의 반려동물 동반 장소가
+                검색되었습니다.
+              </p>
 
-          {!loading && !error && filteredPlaces.length > 0 && (
-            <p className="pageSummary">
-              현재 <strong>{startNumber}</strong>번부터{" "}
-              <strong>{endNumber}</strong>번까지 표시 중입니다. (
-              {currentPage} / {totalPages}페이지)
-            </p>
+              {!loading && !error && totalCount > 0 && (
+                <p className="pageSummary">
+                  현재 <strong>{startNumber}</strong>번부터{" "}
+                  <strong>{endNumber}</strong>번까지 표시 중입니다. (
+                  {currentPage} / {totalPages}페이지)
+                </p>
+              )}
+            </>
           )}
         </div>
 
@@ -357,16 +382,16 @@ export default function Home() {
 
       {error && <p className="error">오류: {error}</p>}
 
-      {!loading && !error && filteredPlaces.length === 0 && (
+      {!loading && !error && hasSearched && places.length === 0 && (
         <p className="status">
           조건에 맞는 장소가 없습니다. 지역이나 유형을 바꿔보세요.
         </p>
       )}
 
-      {!loading && !error && filteredPlaces.length > 0 && (
+      {!loading && !error && places.length > 0 && (
         <>
           <section className="grid">
-            {paginatedPlaces.map((place) => (
+            {places.map((place) => (
               <PlaceCard
                 key={place.contentid}
                 place={place}
@@ -378,7 +403,7 @@ export default function Home() {
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
-            visiblePages={getVisiblePageNumbers()}
+            visiblePages={visiblePages}
             onPageChange={goToPage}
           />
         </>
